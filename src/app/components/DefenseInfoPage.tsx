@@ -293,7 +293,7 @@ function DefenseScheduleCard() {
 /* ═══════════════════════════════════════════════════
    POSSIBLE VERDICTS — Updated per grading spec
    92–100=Pass, 82–91=Pass with Minor Revision,
-   60–81=Re-demonstration, <60=Fail
+   60-81=Pass with Major Revision/Re-demonstration, <60=Fail
    ═══════════════════════════════════════════════════ */
 function VerdictsCard() {
   const verdicts = [
@@ -308,8 +308,8 @@ function VerdictsCard() {
       icon: <Zap size={18} />,
     },
     {
-      label: "RE-DEMONSTRATION", range: "60 – 81", color: DT.warning,
-      desc: "Significant revisions needed. Must re-present to the panel.",
+      label: "PASS WITH MAJOR REVISION / RE-DEMONSTRATION", range: "60 – 81", color: DT.warning,
+      desc: "Major revisions needed. Re-demonstration may be required by the panel.",
       icon: <AlertCircle size={18} />,
     },
     {

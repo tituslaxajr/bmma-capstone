@@ -22,6 +22,7 @@ interface SidebarProps {
   accentColor?: string;
   /** Darker variant for avatar gradient — auto-derived if omitted */
   accentDark?: string;
+  gradeLabel?: string;
 }
 
 /* ── Nav items (null = divider) ── */
@@ -42,7 +43,7 @@ type NavItem = { idx: number; icon: React.ComponentType<{ size: number }>; label
 export function Sidebar({
   activeIndex = 0, onNavigate, onLogout, userName = "Prof. Santos",
   avatarUrl, badges = {}, roleLabel = "Panelist",
-  accentColor, accentDark,
+  accentColor, accentDark, gradeLabel,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [hovered, setHovered] = useState<number | null>(null);
@@ -159,7 +160,7 @@ export function Sidebar({
                       transition: "color 180ms",
                     }}
                   >
-                    {item.label}
+                    {item.idx === 4 && gradeLabel ? gradeLabel : item.label}
                   </span>
                 )}
 
@@ -185,7 +186,7 @@ export function Sidebar({
                     className="px-2.5 py-1.5 rounded-lg whitespace-nowrap"
                     style={{ background: DT.elevated, border: `1px solid ${DT.borderDef}`, boxShadow: DT.shadowMd, fontSize: 12, fontWeight: 600, fontFamily: FT.h, color: DT.textPri }}
                   >
-                    {item.label}
+                    {item.idx === 4 && gradeLabel ? gradeLabel : item.label}
                   </div>
                 </div>
               )}

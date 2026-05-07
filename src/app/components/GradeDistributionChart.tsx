@@ -16,7 +16,7 @@ interface GradeDistributionProps {
 const RANGES = [
   { min: 92, max: 100, label: "92-100", verdict: "Pass", color: DT.success },
   { min: 82, max: 91, label: "82-91", verdict: "Minor Rev", color: DT.blue },
-  { min: 60, max: 81, label: "60-81", verdict: "Re-Demo", color: DT.warning },
+  { min: 60, max: 81, label: "60-81", verdict: "Major Rev/Re-Demo", color: DT.warning },
   { min: 0, max: 59, label: "<60", verdict: "Fail", color: DT.red },
 ];
 

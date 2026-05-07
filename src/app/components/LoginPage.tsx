@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { THREE, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass } from "../lib/three-exports";
+import loginBgWide from "../../assets/login-bg-wide.png";
 import { GraduationCap, ShieldCheck, Eye, EyeOff, Loader2, Settings, ArrowRight, Lock, ArrowLeft, BookOpen } from "lucide-react";
 import { supabase, apiFetch } from "../lib/supabase";
 import { DT, FT, withAlpha } from "./cinematic-tokens";
@@ -168,7 +169,7 @@ function LoginHeroScene() {
         attribute float size;
         attribute vec3 color;
         varying vec3 vColor;
-        varying float vBreath;
+        varying float vMouseInfluence;
         varying float vDefocus;
         uniform float uPixelRatio;
         uniform float uTime;
@@ -180,9 +181,9 @@ function LoginHeroScene() {
           vColor = color;
           vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
           float dist = length(position.xy - uMousePos);
-          float proximity = 1.0 - smoothstep(0.0, 200.0, dist);
+          float proximity = 1.0 - smoothstep(0.0, 220.0, dist);
           float breath = 1.0 + proximity * uMouseActive * (0.6 + 0.3 * sin(uTime * 4.0 + position.x * 0.02));
-          vBreath = proximity * uMouseActive;
+          vMouseInfluence = proximity * uMouseActive;
           float defocus = clamp(abs(position.z - uFocusZ) / uDofRange, 0.0, 1.0);
           vDefocus = defocus;
           float coc = 1.5 + defocus * 2.6;
@@ -192,7 +193,7 @@ function LoginHeroScene() {
       `,
       fragmentShader: `
         varying vec3 vColor;
-        varying float vBreath;
+        varying float vMouseInfluence;
         varying float vDefocus;
         uniform float uTime;
         void main() {
@@ -202,10 +203,11 @@ function LoginHeroScene() {
           float gaussian = exp(-(d * d) * (8.0 / softness));
           float halo = exp(-(d * d) * (2.6 / softness));
           float pulse = 0.9 + 0.1 * sin(uTime * 2.0 + vColor.r * 6.28);
-          float breathBoost = 1.0 + vBreath * 0.8;
+          float mouseMask = smoothstep(0.02, 0.55, vMouseInfluence);
+          float breathBoost = 1.0 + vMouseInfluence * 0.8;
           float focusBright = 0.72 - vDefocus * 0.18;
           vec3 col = vColor * (gaussian * 1.8 + halo * 0.9) * pulse * breathBoost * focusBright;
-          float alpha = (gaussian * 0.34 + halo * 0.20) * (1.0 - vDefocus * 0.08);
+          float alpha = (gaussian * 0.38 + halo * 0.22) * (1.0 - vDefocus * 0.08) * mouseMask;
           gl_FragColor = vec4(col, alpha);
         }
       `,
@@ -225,12 +227,17 @@ function LoginHeroScene() {
     let mActive = false;
     const onMM = (e: MouseEvent) => {
       const r = container.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) {
+        mActive = false;
+        m3.set(9999, 9999, 0);
+        return;
+      }
       m3.set(((e.clientX-r.left)/r.width*2-1)*450, -((e.clientY-r.top)/r.height*2-1)*275, 0);
       mActive = true;
     };
     const onML = () => { mActive = false; m3.set(9999,9999,0); };
-    container.addEventListener("mousemove", onMM);
-    container.addEventListener("mouseleave", onML);
+    window.addEventListener("mousemove", onMM, { passive: true });
+    window.addEventListener("mouseleave", onML);
 
     const onResize = () => {
       const w = container.clientWidth, h = container.clientHeight;
@@ -273,8 +280,8 @@ function LoginHeroScene() {
 
     return () => {
       cancelAnimationFrame(raf);
-      container.removeEventListener("mousemove", onMM);
-      container.removeEventListener("mouseleave", onML);
+      window.removeEventListener("mousemove", onMM);
+      window.removeEventListener("mouseleave", onML);
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVis);
       composer.dispose(); renderer.dispose();
@@ -282,7 +289,7 @@ function LoginHeroScene() {
     };
   }, []);
 
-  return <div ref={mountRef} className="absolute inset-0" style={{ zIndex: 0, filter: "blur(28px) saturate(1.45)", transform: "scale(1.14)" }} />;
+  return <div ref={mountRef} className="absolute inset-0 pointer-events-none" style={{ zIndex: 2, filter: "blur(28px) saturate(1.45)", transform: "scale(1.14)", mixBlendMode: "screen", opacity: 0.72 }} />;
 }
 
 /* ══════════════════════════════════════════
@@ -546,33 +553,30 @@ export function LoginPage({ onLogin, onBackToLanding }: { onLogin: (user: { emai
   const rcGlow = ROLE_META[role].glow;
 
   return (
-    <div className="min-h-screen lg:h-screen flex flex-col lg:flex-row overflow-x-hidden overflow-y-auto lg:overflow-hidden" style={{ fontFamily: FT.b, background: DT.base }}>
+    <div className="relative min-h-screen lg:h-screen flex flex-col lg:flex-row overflow-x-hidden overflow-y-auto lg:overflow-hidden" style={{ fontFamily: FT.b, background: DT.base }}>
       <style>{KEYFRAMES}</style>
+
+      <img
+        src={loginBgWide}
+        alt=""
+        aria-hidden="true"
+        className="hidden lg:block absolute inset-0 w-full h-full object-cover z-[0]"
+        style={{ objectPosition: "center center" }}
+      />
+      <div className="hidden lg:block absolute inset-0 pointer-events-none z-[1]" style={{
+        background: "linear-gradient(90deg, rgba(7,9,15,0.76) 0%, rgba(7,9,15,0.34) 43%, rgba(7,9,15,0.62) 100%), radial-gradient(ellipse 72% 78% at 38% 42%, transparent 16%, rgba(7,9,15,0.36) 72%, rgba(7,9,15,0.82) 100%)",
+      }} />
+      <div className="hidden lg:block absolute inset-0 pointer-events-none z-[2]">
+        <LoginHeroScene />
+      </div>
+      <div className="hidden lg:block absolute inset-0 pointer-events-none z-[3] opacity-[0.025]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")", backgroundSize: "200px 200px" }} />
 
       {/* ══════════════════════════════════════════
          LEFT PANEL — Cinematic Hero (desktop lg+)
          ══════════════════════════════════════════ */}
-      <div className="hidden lg:flex w-[54%] relative overflow-hidden" style={{ background: DT.base }}>
-        {/* Three.js VFX scene */}
-        <LoginHeroScene />
-
-        {/* Ambient CSS light orbs (same as landing page) */}
-        <div className="absolute inset-0 pointer-events-none z-[1] overflow-hidden">
-          <div className="absolute" style={{ width: 550, height: 550, top: "-8%", left: "12%", background: "radial-gradient(circle, rgba(77,143,255,0.07) 0%, transparent 70%)", animation: "orbFloat1 18s ease-in-out infinite" }} />
-          <div className="absolute" style={{ width: 450, height: 450, bottom: "-4%", right: "8%", background: "radial-gradient(circle, rgba(255,209,0,0.05) 0%, transparent 70%)", animation: "orbFloat2 22s ease-in-out infinite" }} />
-          <div className="absolute" style={{ width: 320, height: 320, top: "35%", right: "22%", background: "radial-gradient(circle, rgba(167,139,250,0.04) 0%, transparent 70%)", animation: "orbFloat3 15s ease-in-out infinite" }} />
-        </div>
-
-        {/* Vignette overlays */}
-        <div className="absolute inset-0 pointer-events-none z-[1]" style={{ background: "radial-gradient(ellipse 80% 70% at 50% 45%, transparent 20%, rgba(7,9,15,0.50) 80%, rgba(7,9,15,0.85) 100%)" }} />
-        <div className="absolute bottom-0 left-0 right-0 pointer-events-none z-[1]" style={{ height: 300, background: "linear-gradient(to top, #07090F 0%, rgba(7,9,15,0.7) 40%, transparent 100%)" }} />
-        <div className="absolute top-0 left-0 right-0 pointer-events-none z-[1]" style={{ height: 100, background: "linear-gradient(to bottom, #07090F 0%, transparent 100%)" }} />
-
-        {/* Noise overlay */}
-        <div className="absolute inset-0 pointer-events-none z-[1] opacity-[0.025]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")", backgroundSize: "200px 200px" }} />
-
+      <div className="hidden lg:flex absolute inset-y-0 left-0 w-[58%] z-[4] pointer-events-none">
         {/* Hero content */}
-        <div className="absolute inset-0 z-[2] flex flex-col" style={{ padding: "40px 48px" }}>
+        <div className="absolute inset-0 flex flex-col" style={{ padding: "40px 48px 40px 64px" }}>
           {/* Top: logo + school */}
           <div className="flex items-center gap-3" style={{ animation: "heroTextIn 600ms ease-out 100ms both" }}>
             <LogoMark size={36} />
@@ -583,7 +587,7 @@ export function LoginPage({ onLogin, onBackToLanding }: { onLogin: (user: { emai
           </div>
 
           {/* Center content */}
-          <div className="flex-1 flex flex-col items-center justify-center -mt-4">
+          <div className="flex-1 flex flex-col items-start justify-center -mt-4 max-w-[560px]">
             {/* Program chip */}
             <div style={{ animation: "heroTextIn 600ms ease-out 200ms both" }}>
               <span
@@ -602,7 +606,7 @@ export function LoginPage({ onLogin, onBackToLanding }: { onLogin: (user: { emai
 
             {/* Main headline */}
             <h1
-              className="mt-7 text-center"
+              className="mt-7 text-left"
               style={{
                 fontFamily: FT.h,
                 fontSize: "clamp(52px, 6vw, 72px)",
@@ -634,7 +638,7 @@ export function LoginPage({ onLogin, onBackToLanding }: { onLogin: (user: { emai
 
             {/* Tagline */}
             <p
-              className="mt-5 text-center"
+              className="mt-5 text-left"
               style={{
                 fontFamily: FT.b, fontSize: "clamp(15px, 1.8vw, 19px)",
                 color: "rgba(238,240,246,0.48)", lineHeight: 1.7, maxWidth: 420,
@@ -667,10 +671,17 @@ export function LoginPage({ onLogin, onBackToLanding }: { onLogin: (user: { emai
          TABLET HERO (md only — compact banner)
          ══════════════════════════════════════════ */}
       <div className="hidden md:flex lg:hidden relative overflow-hidden" style={{ height: "180px", background: DT.base }}>
+        <img
+          src={loginBgWide}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover z-[0]"
+          style={{ objectPosition: "center 36%" }}
+        />
         <LoginHeroScene />
-        <div className="absolute inset-0 pointer-events-none z-[1]" style={{ background: "radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(7,9,15,0.70) 100%)" }} />
-        <div className="absolute bottom-0 left-0 right-0 z-[1]" style={{ height: 80, background: "linear-gradient(to top, #07090F, transparent)" }} />
-        <div className="absolute inset-0 z-[2] flex items-center justify-center px-10">
+        <div className="absolute inset-0 pointer-events-none z-[1]" style={{ background: "linear-gradient(90deg, rgba(7,9,15,0.62), rgba(7,9,15,0.24)), radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(7,9,15,0.70) 100%)" }} />
+        <div className="absolute bottom-0 left-0 right-0 z-[3]" style={{ height: 80, background: "linear-gradient(to top, #07090F, transparent)" }} />
+        <div className="absolute inset-0 z-[4] flex items-center justify-center px-10">
           <div className="flex items-center gap-5">
             <LogoMark size={40} />
             <div>
@@ -686,7 +697,7 @@ export function LoginPage({ onLogin, onBackToLanding }: { onLogin: (user: { emai
       {/* ══════════════════════════════════════════
          RIGHT PANEL — Login Form
          ══════════════════════════════════════════ */}
-      <div className="flex-1 lg:w-[46%] flex flex-col items-center justify-start lg:justify-center px-4 py-6 sm:p-8 overflow-auto relative">
+      <div className="relative z-[5] flex-1 lg:w-[42%] lg:ml-auto flex flex-col items-center lg:items-end justify-start lg:justify-center px-4 py-6 sm:p-8 lg:pl-4 lg:pr-12 xl:pr-16 2xl:pr-20 overflow-auto">
         {/* Ambient glow behind form */}
         <div className="absolute pointer-events-none" style={{
           width: 480, height: 480,
@@ -704,23 +715,35 @@ export function LoginPage({ onLogin, onBackToLanding }: { onLogin: (user: { emai
         >
           {/* Form card */}
           <div
-            className="rounded-3xl overflow-hidden"
+            className="relative rounded-3xl overflow-hidden"
             style={{
-              background: `linear-gradient(160deg, ${DT.raised} 0%, rgba(22,27,46,0.92) 100%)`,
-              border: `1px solid ${DT.borderDef}`,
-              boxShadow: "0 32px 64px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.04)",
-              backdropFilter: "blur(24px) saturate(1.6)",
+              background: "linear-gradient(155deg, rgba(24,30,52,0.86) 0%, rgba(13,18,36,0.78) 58%, rgba(8,12,25,0.84) 100%)",
+              border: "1px solid rgba(255,255,255,0.20)",
+              boxShadow: "0 34px 90px rgba(0,0,0,0.58), inset 0 1px 0 rgba(255,255,255,0.16), inset 0 -1px 0 rgba(255,255,255,0.05)",
+              backdropFilter: "blur(36px) saturate(1.85) contrast(1.08)",
+              WebkitBackdropFilter: "blur(36px) saturate(1.85) contrast(1.08)",
             }}
           >
+            <div className="pointer-events-none absolute inset-0 z-0" style={{
+              background: "linear-gradient(135deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.035) 22%, transparent 48%, rgba(77,143,255,0.06) 100%)",
+              mixBlendMode: "screen",
+            }} />
+            <div className="pointer-events-none absolute -inset-x-20 top-0 h-28 z-0" style={{
+              background: "radial-gradient(ellipse at top, rgba(255,255,255,0.24), transparent 68%)",
+              filter: "blur(18px)",
+              opacity: 0.65,
+            }} />
+            <div className="pointer-events-none absolute inset-y-3 left-0 w-px z-0" style={{ background: "linear-gradient(180deg, transparent, rgba(255,255,255,0.28), transparent)" }} />
+            <div className="pointer-events-none absolute inset-y-3 right-0 w-px z-0" style={{ background: "linear-gradient(180deg, transparent, rgba(77,143,255,0.22), transparent)" }} />
             {/* Accent shimmer line */}
-            <div className="h-[2px] relative overflow-hidden" style={{ background: `linear-gradient(90deg, transparent, ${withAlpha(rc, 0.19)}, transparent)` }}>
+            <div className="h-[2px] relative z-[1] overflow-hidden" style={{ background: `linear-gradient(90deg, transparent, ${withAlpha(rc, 0.24)}, rgba(255,255,255,0.16), transparent)` }}>
               <div className="absolute inset-0" style={{
                 background: `linear-gradient(90deg, transparent 0%, ${withAlpha(rc, 0.5)} 50%, transparent 100%)`,
                 width: "30%", animation: "shimmerLine 3.5s ease-in-out infinite",
               }} />
             </div>
 
-            <div className="px-6 sm:px-8 md:px-10 pt-7 sm:pt-9 pb-7 sm:pb-9">
+            <div className="relative z-[1] px-6 sm:px-8 md:px-10 pt-7 sm:pt-9 pb-7 sm:pb-9">
               {/* Mobile-only logo row */}
               <div className="md:hidden flex items-center gap-3 mb-7">
                 <LogoMark size={34} />

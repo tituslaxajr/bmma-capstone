@@ -7,9 +7,14 @@ import { BottomNavBar } from "../BottomNavBar";
 import { MobileDrawer } from "../MobileDrawer";
 import { AnimatedOutlet } from "../AnimatedOutlet";
 import { OnboardingTour } from "../OnboardingTour";
+import { CoordinatorViewSwitcher } from "../CoordinatorViewSwitcher";
 import {
   LayoutDashboard, FileText, ShieldCheck, CheckSquare, Settings, BarChart3,
 } from "lucide-react";
+
+function hasUserRole(user: any, role: "panelist" | "adviser" | "coordinator") {
+  return user?.role === role || (user?.secondaryRoles || []).includes(role);
+}
 
 const PATHS = ["", "pre-defense", "defense-session", "post-defense", "grade-aggregator", "settings"];
 
@@ -50,13 +55,18 @@ export function PanelistLayout() {
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const isAdviser = user?.role === "adviser";
+  const isAdviser = location.pathname.startsWith("/adviser");
+  const isCoordinatorMonitoring = hasUserRole(user, "coordinator");
+  const canUsePanelistView = hasUserRole(user, "panelist") || isCoordinatorMonitoring;
+  const canUseAdviserView = hasUserRole(user, "adviser") || isCoordinatorMonitoring;
+  const dualFacultyAccess = !isCoordinatorMonitoring && canUsePanelistView && canUseAdviserView;
   const basePath = isAdviser ? "/adviser" : "/panelist";
   const roleLabel = isAdviser ? "Adviser" : "Panelist";
+  const viewRole = isAdviser ? "adviser" : "panelist";
 
   const activeIndex = pathToIndex(location.pathname);
   const currentSeg = location.pathname.replace(/^\/(panelist|adviser)\/?/, "").split("/")[0] || "";
-  const breadcrumb = BREADCRUMB_LABELS[currentSeg] || "";
+  const breadcrumb = isAdviser && currentSeg === "grade-aggregator" ? "Adviser Grading" : BREADCRUMB_LABELS[currentSeg] || "";
 
   const onNavigate = useCallback((idx: number) => {
     const path = PATHS[idx] || "";
@@ -66,7 +76,9 @@ export function PanelistLayout() {
     setDrawerOpen(false);
   }, [navigate, basePath]);
 
-  if (!user || (user.role !== "panelist" && user.role !== "adviser")) return <Navigate to="/login" replace />;
+  if (!user || (!canUsePanelistView && !canUseAdviserView)) return <Navigate to="/login" replace />;
+  if (isAdviser && !canUseAdviserView) return <Navigate to="/panelist" replace />;
+  if (!isAdviser && !canUsePanelistView) return <Navigate to="/adviser" replace />;
   if (needsProfileSetup) return <Navigate to="/setup" replace />;
 
   return (
@@ -85,6 +97,11 @@ export function PanelistLayout() {
         avatarUrl={user.avatarUrl}
         onHamburger={() => setDrawerOpen(true)}
         breadcrumb={currentSeg ? breadcrumb : undefined}
+        viewSwitcher={
+          isCoordinatorMonitoring ? <CoordinatorViewSwitcher /> :
+          dualFacultyAccess ? <CoordinatorViewSwitcher allowedRoles={["panelist", "adviser"]} /> :
+          undefined
+        }
       />
       <div className="flex flex-1 overflow-hidden">
         <div className="hidden md:flex">
@@ -97,6 +114,7 @@ export function PanelistLayout() {
             roleLabel={roleLabel}
             accentColor={isAdviser ? "#2DD4BF" : undefined}
             accentDark={isAdviser ? "#14B8A6" : undefined}
+            gradeLabel={isAdviser ? "Adviser Grading" : undefined}
           />
         </div>
         <main
@@ -110,7 +128,7 @@ export function PanelistLayout() {
           </div>
         </main>
       </div>
-      <BottomNavBar role={user.role} activeIndex={activeIndex} onNavigate={onNavigate} />
+      <BottomNavBar role={viewRole} activeIndex={activeIndex} onNavigate={onNavigate} />
       <MobileDrawer
         open={drawerOpen} onClose={() => setDrawerOpen(false)}
         userName={user.name} role={roleLabel} avatarUrl={user.avatarUrl}
@@ -119,7 +137,7 @@ export function PanelistLayout() {
       />
       {/* Screen reader live region for dynamic updates */}
       <div aria-live="polite" aria-atomic="true" className="sr-only" id="sr-announcements" />
-      <OnboardingTour role={user.role} userId={user.id} />
+      <OnboardingTour role={viewRole} userId={user.id} />
     </div>
   );
 }

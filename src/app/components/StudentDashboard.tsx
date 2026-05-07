@@ -126,7 +126,7 @@ const CAPSTONE_TIMELINE = [
   { phase: "Defense Day", icon: <ShieldCheck size={16} />, color: DT.purple, steps: [
     "Present your capstone project to the panel",
     "Answer questions from panelists",
-    "Receive verdict: Pass, Pass with Minor Revision, Re-demonstration, or Fail",
+    "Receive verdict: Pass, Pass with Minor Revision, Pass with Major Revision/Re-demonstration, or Fail",
   ]},
   { phase: "Post-Defense", icon: <CheckCircle size={16} />, color: DT.success, steps: [
     "Complete required revisions (if any)",

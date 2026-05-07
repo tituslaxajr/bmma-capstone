@@ -68,7 +68,7 @@ function VerdictHero({ overallScore, finalVerdict, revisionDeadline }: { overall
   const isRedemo = finalVerdict === "redemonstration";
   const isFailed = finalVerdict === "failed";
 
-  const verdictLabel = isPassed ? "PASS" : isRevisions ? "PASS WITH MINOR REVISION" : isRedemo ? "RE-DEMONSTRATION" : "FAIL";
+  const verdictLabel = isPassed ? "PASS" : isRevisions ? "PASS WITH MINOR REVISION" : isRedemo ? "PASS WITH MAJOR REVISION / RE-DEMONSTRATION" : "FAIL";
   const verdictColor = isPassed ? DT.success : isRevisions ? DT.blue : isRedemo ? DT.warning : DT.error;
   const VerdictIcon = isPassed ? CheckCircle : isRevisions ? AlertTriangle : XCircle;
 
@@ -172,7 +172,7 @@ function PanelDecision({ grades }: { grades: any[] }) {
       <h3 className="mb-5" style={{ fontFamily: FT.h, fontSize: 18, fontWeight: 700, color: DT.textPri }}>Panel Voting</h3>
       <div>
         {grades.map((g, i) => {
-          const vMap: Record<string, string> = { passed: "Passed", pass: "Passed", revisions: "Passed with Revisions", minor: "Pass with Minor Revisions", major: "Pass with Major Revisions", failed: "Failed" };
+          const vMap: Record<string, string> = { passed: "Passed", pass: "Passed", revisions: "Passed with Revisions", minor: "Pass with Minor Revision", major: "Pass with Major Revision / Re-demonstration", redemonstration: "Pass with Major Revision / Re-demonstration", failed: "Failed" };
           const cMap: Record<string, string> = { passed: DT.success, pass: DT.success, revisions: DT.warning, minor: DT.blue, major: DT.warning, failed: DT.error };
           const verdictLabel = vMap[g.verdict] || g.verdict;
           const verdictColor = cMap[g.verdict] || DT.textTer;
@@ -491,7 +491,7 @@ export function DefenseResultsPage() {
   const finalVerdict = Object.entries(verdictCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "pending";
 
   // Map new verdict format too
-  const verdictMap: Record<string, string> = { "pass": "passed", "minor": "revisions", "major": "revisions", "passed": "passed", "revisions": "revisions", "failed": "failed" };
+  const verdictMap: Record<string, string> = { "pass": "passed", "minor": "revisions", "major": "redemonstration", "redemonstration": "redemonstration", "passed": "passed", "revisions": "revisions", "failed": "failed" };
   const normalizedVerdict = verdictMap[finalVerdict] || finalVerdict;
 
   const defenseDate = defense?.date || group?.defenseDate || "";
@@ -525,7 +525,7 @@ export function DefenseResultsPage() {
           {[0, 1, 2].map(i => {
             const g = grades[i];
             const done = !!g;
-            const vMap: Record<string, string> = { passed: "Pass", pass: "Pass", revisions: "Revisions", minor: "Minor Rev", major: "Major Rev", failed: "Failed" };
+            const vMap: Record<string, string> = { passed: "Pass", pass: "Pass", revisions: "Revisions", minor: "Minor Rev", major: "Major Rev/Re-Demo", redemonstration: "Major Rev/Re-Demo", failed: "Failed" };
             return (
               <div key={i} className="flex items-center gap-2">
                 <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{
@@ -656,7 +656,7 @@ function FinalGradeComposite({ groupNumber }: { groupNumber?: number }) {
                 if (!mg) return null;
                 const vColor = mg.verdict === "Pass" ? DT.success :
                   mg.verdict?.includes("Minor") ? DT.blue :
-                  mg.verdict?.includes("Major") ? DT.warning : DT.error;
+                  mg.verdict?.includes("Major") || mg.verdict?.includes("demonstration") ? DT.warning : DT.error;
                 return (
                   <tr key={name} style={{ borderBottom: `1px solid ${DT.borderHair}` }}>
                     <td className="py-3 pr-4" style={{ fontWeight: 600, color: DT.textPri }}>{name}</td>

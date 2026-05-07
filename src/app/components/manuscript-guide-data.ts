@@ -142,7 +142,7 @@ export const DEFENSE_PREP_STEPS = [
 export const VERDICT_CHIPS = [
   { range: "92-100", label: "Pass", color: "#4ADE80", colorDim: "rgba(74,222,128,0.12)" },
   { range: "82-91", label: "Minor Revision", color: "#FBBF24", colorDim: "rgba(251,191,36,0.12)" },
-  { range: "60-81", label: "Re-demonstration", color: "#FB923C", colorDim: "rgba(251,146,60,0.12)" },
+  { range: "60-81", label: "Major Revision / Re-demonstration", color: "#FB923C", colorDim: "rgba(251,146,60,0.12)" },
   { range: "< 60", label: "Fail", color: "#F87171", colorDim: "rgba(248,113,113,0.12)" },
 ];
 

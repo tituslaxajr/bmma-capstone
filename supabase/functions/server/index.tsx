@@ -142,6 +142,21 @@ async function getAuthedUser(c: any): Promise<any | null> {
   return data.user;
 }
 
+function normalizeSecondaryRoles(role: string, roles: any): string[] {
+  if (!Array.isArray(roles)) return [];
+  const allowed = new Set(["panelist", "adviser"]);
+  return Array.from(new Set(
+    roles
+      .map((r: any) => String(r || "").toLowerCase())
+      .filter((r: string) => allowed.has(r) && r !== role)
+  ));
+}
+
+function hasProfileRole(profile: any, role: string): boolean {
+  const roles = [profile?.role, ...(profile?.secondaryRoles || [])].map((r: string) => r?.toLowerCase());
+  return roles.includes(role);
+}
+
 /** Auto-provision a user_profiles row from Supabase Auth user if missing */
 async function ensureProfile(userId: string, authUser?: any): Promise<any> {
   let profile = await T("user_profiles").get(userId);
@@ -152,6 +167,7 @@ async function ensureProfile(userId: string, authUser?: any): Promise<any> {
   const email = authUser?.email || meta.email || "unknown@example.com";
   const name = meta.name || meta.full_name || email.split("@")[0];
   const role = meta.role || "coordinator"; // first user is usually coordinator
+  const secondaryRoles = normalizeSecondaryRoles(role, meta.secondaryRoles);
   const initials = name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
 
   const newProfile = {
@@ -159,6 +175,7 @@ async function ensureProfile(userId: string, authUser?: any): Promise<any> {
     name,
     email,
     role,
+    secondaryRoles,
     group: "—",
     adviser: "—",
     department: "",
@@ -347,7 +364,7 @@ app.get("/make-server-36da3eb1/landing/data", async (c) => {
 
     // Counts
     const studentCount = users.filter((u: any) => u.role === "student" && u.status === "Active").length;
-    const panelistProfiles = users.filter((u: any) => u.role === "panelist" && u.status === "Active");
+    const panelistProfiles = users.filter((u: any) => hasProfileRole(u, "panelist") && u.status === "Active");
     const coordinators = users.filter((u: any) => u.role === "coordinator" && u.status === "Active");
 
     // Unique advisers from groups
@@ -454,7 +471,8 @@ app.post("/make-server-36da3eb1/auth/signup", async (c) => {
     const auth = await requireCoordinator(c);
     if (auth instanceof Response) return auth;
 
-    const { email, password, name, role, group, adviser, department } = await c.req.json();
+    const { email, password, name, role, secondaryRoles, group, adviser, department } = await c.req.json();
+    const normalizedSecondaryRoles = normalizeSecondaryRoles(role, secondaryRoles);
 
     if (!email || !password || !name || !role) {
       return c.json({ error: "Missing required fields: email, password, name, role" }, 400);
@@ -464,7 +482,7 @@ app.post("/make-server-36da3eb1/auth/signup", async (c) => {
     const { data, error } = await supabase.auth.admin.createUser({
       email,
       password,
-      user_metadata: { name, role },
+      user_metadata: { name, role, secondaryRoles: normalizedSecondaryRoles },
       // Automatically confirm the user's email since an email server hasn't been configured.
       email_confirm: true,
     });
@@ -480,6 +498,7 @@ app.post("/make-server-36da3eb1/auth/signup", async (c) => {
       name,
       email,
       role,
+      secondaryRoles: normalizedSecondaryRoles,
       group: group || "—",
       adviser: adviser || "���",
       department: department || "",
@@ -518,7 +537,8 @@ app.post("/make-server-36da3eb1/auth/bulk-signup", async (c) => {
     const results: { email: string; success: boolean; error?: string; userId?: string }[] = [];
 
     for (const u of users) {
-      const { email, password, name, role, group, adviser, department } = u;
+      const { email, password, name, role, secondaryRoles, group, adviser, department } = u;
+      const normalizedSecondaryRoles = normalizeSecondaryRoles(role || "student", secondaryRoles);
       if (!email || !password || !name) {
         results.push({ email: email || "?", success: false, error: "Missing name, email, or password" });
         continue;
@@ -527,7 +547,7 @@ app.post("/make-server-36da3eb1/auth/bulk-signup", async (c) => {
         const { data, error } = await supabase.auth.admin.createUser({
           email,
           password,
-          user_metadata: { name, role: role || "student" },
+          user_metadata: { name, role: role || "student", secondaryRoles: normalizedSecondaryRoles },
           email_confirm: true,
         });
         if (error) {
@@ -537,6 +557,7 @@ app.post("/make-server-36da3eb1/auth/bulk-signup", async (c) => {
         const profile = {
           id: data.user.id, name, email,
           role: role || "student",
+          secondaryRoles: normalizedSecondaryRoles,
           group: group || "—",
           adviser: adviser || "—",
           department: department || "",
@@ -871,17 +892,21 @@ app.put("/make-server-36da3eb1/users/:id", async (c) => {
 
     const existing = await T("user_profiles").get(targetId);
     if (!existing) return c.json({ error: "User not found" }, 404);
+    if (updates.secondaryRoles !== undefined || updates.role !== undefined) {
+      updates.secondaryRoles = normalizeSecondaryRoles(updates.role || existing.role, updates.secondaryRoles || existing.secondaryRoles);
+    }
 
     const updated = { ...existing, ...updates, id: targetId };
     await T("user_profiles").upd(targetId, updates);
 
     // Also update auth user_metadata if role or name changed
-    if (updates.role || updates.name) {
+    if (updates.role || updates.name || updates.secondaryRoles) {
       const supabase = getAdminClient();
       await supabase.auth.admin.updateUserById(targetId, {
         user_metadata: {
           name: updated.name,
           role: updated.role,
+          secondaryRoles: updated.secondaryRoles || [],
         },
       });
     }
@@ -1509,7 +1534,7 @@ app.get("/make-server-36da3eb1/me/context", async (c) => {
 
     // For panelists/advisers: find groups where this user is a panelist
     let assignedGroups: any[] = [];
-    if (profile.role === "panelist" || profile.role === "adviser") {
+    if (hasProfileRole(profile, "panelist") || hasProfileRole(profile, "adviser")) {
       assignedGroups = groups
         .filter((g: any) =>
           g.panelists?.some((p: any) =>
@@ -1521,7 +1546,7 @@ app.get("/make-server-36da3eb1/me/context", async (c) => {
 
     // For panelists/advisers/coordinator: find groups where this user is the adviser
     let advisedGroups: any[] = [];
-    if (profile.role === "panelist" || profile.role === "adviser" || profile.role === "coordinator") {
+    if (hasProfileRole(profile, "panelist") || hasProfileRole(profile, "adviser") || hasProfileRole(profile, "coordinator")) {
       advisedGroups = groups
         .filter((g: any) =>
           g.adviser && (g.adviser === profile.name || g.adviser?.toLowerCase() === profile.name?.toLowerCase())
@@ -1603,13 +1628,13 @@ app.get("/make-server-36da3eb1/me/bootstrap", async (c) => {
     };
 
     let assignedGroups: any[] = [];
-    if (profile.role === "panelist" || profile.role === "adviser") {
+    if (hasProfileRole(profile, "panelist") || hasProfileRole(profile, "adviser")) {
       assignedGroups = groups
         .filter((g: any) => g.panelists?.some((p: any) => p.name?.toLowerCase() === profile.name?.toLowerCase()))
         .map(enrichGroup);
     }
     let advisedGroups: any[] = [];
-    if (profile.role === "panelist" || profile.role === "adviser" || profile.role === "coordinator") {
+    if (hasProfileRole(profile, "panelist") || hasProfileRole(profile, "adviser") || hasProfileRole(profile, "coordinator")) {
       advisedGroups = groups
         .filter((g: any) => g.adviser?.toLowerCase() === profile.name?.toLowerCase())
         .map(enrichGroup);
@@ -1923,7 +1948,7 @@ app.put("/make-server-36da3eb1/progress-reports/:id/feedback", async (c) => {
     if (!existing) return c.json({ error: "Report not found" }, 404);
 
     // If panelist or adviser, verify they are adviser for this group
-    if (profile.role === "panelist" || profile.role === "adviser") {
+    if (hasProfileRole(profile, "panelist") || hasProfileRole(profile, "adviser")) {
       const groups = await T("groups").all();
       const isAdviser = groups.some((g: any) =>
         (g.number === existing.groupNumber || g.id === existing.groupId) &&
@@ -2793,22 +2818,63 @@ app.get("/make-server-36da3eb1/peer-evaluations/group/:groupNumber", async (c) =
 
 app.post("/make-server-36da3eb1/adviser-grades", async (c) => {
   try {
-    const auth = await requireCoordinator(c);
-    if (auth instanceof Response) return auth;
+    const authUser = await getAuthedUser(c);
+    if (!authUser?.id) return c.json({ error: "Unauthorized" }, 401);
+    const profile = await ensureProfile(authUser.id, authUser);
+    if (!hasProfileRole(profile, "coordinator") && !hasProfileRole(profile, "adviser")) {
+      return c.json({ error: "Forbidden - adviser or coordinator access required" }, 403);
+    }
     const body = await c.req.json();
     const { groupId, groupNumber, groupTitle, memberScores } = body;
     if (!groupId || !memberScores) return c.json({ error: "Missing required fields: groupId, memberScores" }, 400);
+    const groupsForAuth = await T("groups").all();
+    const targetGroup = groupsForAuth.find((g: any) => g.id === groupId || g.number === groupNumber);
+    if (hasProfileRole(profile, "adviser") && !hasProfileRole(profile, "coordinator")) {
+      const isAssignedAdviser = targetGroup?.adviser?.toLowerCase?.() === profile.name?.toLowerCase?.();
+      if (!isAssignedAdviser) return c.json({ error: "Forbidden - this group is not assigned to you as adviser" }, 403);
+    }
     const existing = await T("adviser_grades").all();
     const prev = existing.find((g: any) => g.groupId === groupId || g.groupNumber === groupNumber);
     const id = prev ? prev.id : await nextId("adviser-grade");
-    const record = { id, groupId, groupNumber: groupNumber ?? null, groupTitle: groupTitle || "", memberScores, submittedAt: new Date().toISOString() };
+    const record = { id, groupId, groupNumber: groupNumber ?? null, groupTitle: groupTitle || "", memberScores, submittedBy: profile.name, submittedById: profile.id, submittedAt: new Date().toISOString() };
     await T("adviser_grades").ups(record);
     console.log(`Adviser grade ${id} saved for group ${groupId}`);
 
+    // If the coordinator already aggregated this group, refresh the 30% adviser component immediately.
+    try {
+      const aggregate = await T("grade_aggregates").get(groupNumber, "group_number");
+      if (aggregate?.memberFinalGrades) {
+        for (const memberName of aggregate.members || []) {
+          const scores = memberScores?.[memberName];
+          if (!scores || !aggregate.memberFinalGrades[memberName]) continue;
+          const adviserScore =
+            ((scores.attendance || 0) / 4 * 100 * 0.15) +
+            ((scores.participation || 0) / 4 * 100 * 0.25) +
+            ((scores.involvement || 0) / 4 * 100 * 0.60);
+          const memberGrade = aggregate.memberFinalGrades[memberName];
+          const defenseScore = memberGrade.defenseScore || 0;
+          const coordScore = memberGrade.coordScore || 0;
+          const finalRaw = (defenseScore * 0.60) + (adviserScore * 0.30) + (coordScore * 0.10);
+          const equivalent = finalDefenseEquivalent(finalRaw);
+          const verdict = equivalent.verdict; const numericalGrade = equivalent.numericalGrade;
+          aggregate.memberFinalGrades[memberName] = {
+            ...memberGrade,
+            adviserScore: Math.round(adviserScore * 100) / 100,
+            finalRaw: Math.round(finalRaw * 100) / 100,
+            verdict,
+            numericalGrade,
+            hasAdviserGrade: true,
+          };
+        }
+        aggregate.hasAdviserGrade = true;
+        aggregate.aggregatedAt = new Date().toISOString();
+        await T("grade_aggregates").ups(aggregate);
+      }
+    } catch (e) { console.log(`Adviser aggregate refresh skipped: ${e}`); }
+
     // Notify group members about adviser grade
     try {
-      const groups = await T("groups").all();
-      const grp = groups.find((g: any) => g.id === groupId || g.number === groupNumber);
+      const grp = targetGroup;
       if (grp?.members) {
         const users = await T("user_profiles").all();
         for (const m of grp.members) {
@@ -2838,9 +2904,19 @@ app.get("/make-server-36da3eb1/adviser-grades/group/:groupNumber", async (c) => 
 
 app.get("/make-server-36da3eb1/adviser-grades", async (c) => {
   try {
-    const auth = await requireCoordinator(c);
-    if (auth instanceof Response) return auth;
-    return c.json({ grades: await T("adviser_grades").all() });
+    const authUser = await getAuthedUser(c);
+    if (!authUser?.id) return c.json({ error: "Unauthorized" }, 401);
+    const profile = await ensureProfile(authUser.id, authUser);
+    const grades = await T("adviser_grades").all();
+    if (hasProfileRole(profile, "coordinator")) return c.json({ grades });
+    if (hasProfileRole(profile, "adviser")) {
+      const groups = await T("groups").all();
+      const advisedGroupNumbers = new Set(groups
+        .filter((g: any) => g.adviser?.toLowerCase?.() === profile.name?.toLowerCase?.())
+        .map((g: any) => g.number || g.id));
+      return c.json({ grades: grades.filter((g: any) => advisedGroupNumbers.has(g.groupNumber || g.groupId)) });
+    }
+    return c.json({ error: "Forbidden - adviser or coordinator access required" }, 403);
   } catch (err) { return c.json({ error: `Failed: ${err}` }, 500); }
 });
 
@@ -2862,6 +2938,37 @@ app.post("/make-server-36da3eb1/coordinator-grades", async (c) => {
     const record = { id, groupId, groupNumber: groupNumber ?? null, groupTitle: groupTitle || "", memberScores, submittedAt: new Date().toISOString() };
     await T("coordinator_grades").ups(record);
     console.log(`Coordinator grade ${id} saved for group ${groupId}`);
+
+    // If the group already has a final aggregate, refresh the 10% coordinator component immediately.
+    try {
+      const aggregate = await T("grade_aggregates").get(groupNumber, "group_number");
+      if (aggregate?.memberFinalGrades) {
+        for (const memberName of aggregate.members || []) {
+          const scores = memberScores?.[memberName];
+          if (!scores || !aggregate.memberFinalGrades[memberName]) continue;
+          const coordScore =
+            ((scores.taskPerformance || 0) / 4 * 100 * 0.20) +
+            ((scores.submissionOfRequirements || 0) / 4 * 100 * 0.80);
+          const memberGrade = aggregate.memberFinalGrades[memberName];
+          const defenseScore = memberGrade.defenseScore || 0;
+          const adviserScore = memberGrade.adviserScore || 0;
+          const finalRaw = (defenseScore * 0.60) + (adviserScore * 0.30) + (coordScore * 0.10);
+          const equivalent = finalDefenseEquivalent(finalRaw);
+          const verdict = equivalent.verdict; const numericalGrade = equivalent.numericalGrade;
+          aggregate.memberFinalGrades[memberName] = {
+            ...memberGrade,
+            coordScore: Math.round(coordScore * 100) / 100,
+            finalRaw: Math.round(finalRaw * 100) / 100,
+            verdict,
+            numericalGrade,
+            hasCoordGrade: true,
+          };
+        }
+        aggregate.hasCoordGrade = true;
+        aggregate.aggregatedAt = new Date().toISOString();
+        await T("grade_aggregates").ups(aggregate);
+      }
+    } catch (e) { console.log(`Coordinator aggregate refresh skipped: ${e}`); }
 
     // Notify group members about coordinator grade
     try {
@@ -2905,6 +3012,31 @@ app.get("/make-server-36da3eb1/coordinator-grades", async (c) => {
 /* ══════════════════════════════════════════
    FINAL GRADES: Composite 60/30/10 computation
    ══════════════════════════════════════════ */
+const CURRENT_GROUP_KEYS = ["results", "discussion", "output", "presentation", "qa"];
+const LEGACY_GROUP_KEYS = ["manuscript", "output", "presentation"];
+const INDIVIDUAL_KEYS = ["communication", "organization", "effectiveness"];
+
+function computeDefenseComponent(pg: any, memberName: string) {
+  const gs = pg.groupScores || pg.scores || {};
+  const usesCurrentRubric = CURRENT_GROUP_KEYS.some((key) => gs[key] !== undefined && gs[key] !== null);
+  let groupRaw = 0;
+  if (usesCurrentRubric) {
+    groupRaw = Number(pg.groupTotal ?? CURRENT_GROUP_KEYS.reduce((sum, key) => sum + Number(gs[key] || 0), 0));
+  } else {
+    groupRaw = LEGACY_GROUP_KEYS.reduce((sum, key) => sum + Number(gs[key] || 0), 0) / 12 * 100;
+  }
+  const indScores = pg.individualScores?.[memberName] || {};
+  const indRaw = INDIVIDUAL_KEYS.reduce((sum, key) => sum + Number(indScores[key] || 0), 0) / (usesCurrentRubric ? 15 : 12) * 100;
+  return (groupRaw * 0.60) + (indRaw * 0.40);
+}
+
+function finalDefenseEquivalent(rawScore: number) {
+  if (rawScore >= 92) return { verdict: "Pass", numericalGrade: "1.00" };
+  if (rawScore >= 82) return { verdict: "Pass with Minor Revision", numericalGrade: "2.00" };
+  if (rawScore >= 60) return { verdict: "Pass with Major Revision/Re-demonstration", numericalGrade: "3.00" };
+  return { verdict: "Failed", numericalGrade: "5.00" };
+}
+
 app.get("/make-server-36da3eb1/final-grades/group/:groupNumber", async (c) => {
   try {
     const userId = await getAuthedUserId(c);
@@ -2925,11 +3057,7 @@ app.get("/make-server-36da3eb1/final-grades/group/:groupNumber", async (c) => {
     for (const memberName of members) {
       let defenseScore = 0; let panelistCount = 0;
       for (const pg of pgrades) {
-        const gs = pg.groupScores || {};
-        const groupRaw = ((gs.manuscript || 0) + (gs.output || 0) + (gs.presentation || 0)) / 12 * 100;
-        const indScores = pg.individualScores?.[memberName] || {};
-        const indRaw = ((indScores.communication || 0) + (indScores.organization || 0) + (indScores.effectiveness || 0)) / 12 * 100;
-        defenseScore += (groupRaw * 0.60) + (indRaw * 0.40);
+        defenseScore += computeDefenseComponent(pg, memberName);
         panelistCount++;
       }
       const avgDefenseScore = panelistCount > 0 ? defenseScore / panelistCount : 0;
@@ -2944,13 +3072,8 @@ app.get("/make-server-36da3eb1/final-grades/group/:groupNumber", async (c) => {
         coordScore = ((cs.taskPerformance || 0) / 4 * 100 * 0.20) + ((cs.submissionOfRequirements || 0) / 4 * 100 * 0.80);
       }
       const finalRaw = (avgDefenseScore * 0.60) + (adviserScore * 0.30) + (coordScore * 0.10);
-      let verdict = "Failed / Re-defense"; let numericalGrade = "5.00";
-      if (finalRaw >= 98) { verdict = "Pass"; numericalGrade = "1.00"; }
-      else if (finalRaw >= 93) { verdict = "Pass with Minor Revisions"; numericalGrade = "1.25"; }
-      else if (finalRaw >= 89) { verdict = "Pass with Minor Revisions"; numericalGrade = "1.75"; }
-      else if (finalRaw >= 83) { verdict = "Pass with Major Revisions"; numericalGrade = "2.00"; }
-      else if (finalRaw >= 78) { verdict = "Pass with Major Revisions"; numericalGrade = "2.50"; }
-      else if (finalRaw >= 75) { verdict = "Pass with Major Revisions"; numericalGrade = "3.00"; }
+      const equivalent = finalDefenseEquivalent(finalRaw);
+      const verdict = equivalent.verdict; const numericalGrade = equivalent.numericalGrade;
       memberFinalGrades[memberName] = {
         defenseScore: Math.round(avgDefenseScore * 100) / 100, adviserScore: Math.round(adviserScore * 100) / 100,
         coordScore: Math.round(coordScore * 100) / 100, finalRaw: Math.round(finalRaw * 100) / 100,
@@ -3009,11 +3132,7 @@ app.post("/make-server-36da3eb1/final-grades/aggregate/:groupNumber", async (c) 
     for (const memberName of members) {
       let defenseScore = 0; let panelistCount = 0;
       for (const pg of pgrades) {
-        const gs = pg.groupScores || {};
-        const groupRaw = ((gs.manuscript || 0) + (gs.output || 0) + (gs.presentation || 0)) / 12 * 100;
-        const indScores = pg.individualScores?.[memberName] || {};
-        const indRaw = ((indScores.communication || 0) + (indScores.organization || 0) + (indScores.effectiveness || 0)) / 12 * 100;
-        defenseScore += (groupRaw * 0.60) + (indRaw * 0.40);
+        defenseScore += computeDefenseComponent(pg, memberName);
         panelistCount++;
       }
       const avgDefenseScore = panelistCount > 0 ? defenseScore / panelistCount : 0;
@@ -3028,13 +3147,8 @@ app.post("/make-server-36da3eb1/final-grades/aggregate/:groupNumber", async (c) 
         coordScore = ((cs.taskPerformance || 0) / 4 * 100 * 0.20) + ((cs.submissionOfRequirements || 0) / 4 * 100 * 0.80);
       }
       const finalRaw = (avgDefenseScore * 0.60) + (adviserScore * 0.30) + (coordScore * 0.10);
-      let verdict = "Failed / Re-defense"; let numericalGrade = "5.00";
-      if (finalRaw >= 98) { verdict = "Pass"; numericalGrade = "1.00"; }
-      else if (finalRaw >= 93) { verdict = "Pass with Minor Revisions"; numericalGrade = "1.25"; }
-      else if (finalRaw >= 89) { verdict = "Pass with Minor Revisions"; numericalGrade = "1.75"; }
-      else if (finalRaw >= 83) { verdict = "Pass with Major Revisions"; numericalGrade = "2.00"; }
-      else if (finalRaw >= 78) { verdict = "Pass with Major Revisions"; numericalGrade = "2.50"; }
-      else if (finalRaw >= 75) { verdict = "Pass with Major Revisions"; numericalGrade = "3.00"; }
+      const equivalent = finalDefenseEquivalent(finalRaw);
+      const verdict = equivalent.verdict; const numericalGrade = equivalent.numericalGrade;
       memberFinalGrades[memberName] = {
         defenseScore: Math.round(avgDefenseScore * 100) / 100, adviserScore: Math.round(adviserScore * 100) / 100,
         coordScore: Math.round(coordScore * 100) / 100, finalRaw: Math.round(finalRaw * 100) / 100,
@@ -3078,11 +3192,7 @@ app.post("/make-server-36da3eb1/final-grades/aggregate-all", async (c) => {
       for (const memberName of members) {
         let defenseScore = 0; let panelistCount = 0;
         for (const pg of pgrades) {
-          const gs = pg.groupScores || {};
-          const groupRaw = ((gs.manuscript || 0) + (gs.output || 0) + (gs.presentation || 0)) / 12 * 100;
-          const indScores = pg.individualScores?.[memberName] || {};
-          const indRaw = ((indScores.communication || 0) + (indScores.organization || 0) + (indScores.effectiveness || 0)) / 12 * 100;
-          defenseScore += (groupRaw * 0.60) + (indRaw * 0.40);
+          defenseScore += computeDefenseComponent(pg, memberName);
           panelistCount++;
         }
         const avgDefenseScore = panelistCount > 0 ? defenseScore / panelistCount : 0;
@@ -3097,13 +3207,8 @@ app.post("/make-server-36da3eb1/final-grades/aggregate-all", async (c) => {
           coordScore = ((cs.taskPerformance || 0) / 4 * 100 * 0.20) + ((cs.submissionOfRequirements || 0) / 4 * 100 * 0.80);
         }
         const finalRaw = (avgDefenseScore * 0.60) + (adviserScore * 0.30) + (coordScore * 0.10);
-        let verdict = "Failed / Re-defense"; let numericalGrade = "5.00";
-        if (finalRaw >= 98) { verdict = "Pass"; numericalGrade = "1.00"; }
-        else if (finalRaw >= 93) { verdict = "Pass with Minor Revisions"; numericalGrade = "1.25"; }
-        else if (finalRaw >= 89) { verdict = "Pass with Minor Revisions"; numericalGrade = "1.75"; }
-        else if (finalRaw >= 83) { verdict = "Pass with Major Revisions"; numericalGrade = "2.00"; }
-        else if (finalRaw >= 78) { verdict = "Pass with Major Revisions"; numericalGrade = "2.50"; }
-        else if (finalRaw >= 75) { verdict = "Pass with Major Revisions"; numericalGrade = "3.00"; }
+        const equivalent = finalDefenseEquivalent(finalRaw);
+        const verdict = equivalent.verdict; const numericalGrade = equivalent.numericalGrade;
         memberFinalGrades[memberName] = {
           defenseScore: Math.round(avgDefenseScore * 100) / 100, adviserScore: Math.round(adviserScore * 100) / 100,
           coordScore: Math.round(coordScore * 100) / 100, finalRaw: Math.round(finalRaw * 100) / 100,
@@ -3152,7 +3257,7 @@ app.put("/make-server-36da3eb1/final-grades/release/:groupNumber", async (c) => 
             `Your group's final composite grades have been officially released. Check your defense results page.`);
         }
         // Notify panelists/advisers who graded this group
-        if ((u.role === "panelist" || u.role === "adviser") && (aggregate.panelistNames || []).includes(u.name)) {
+        if ((hasProfileRole(u, "panelist") || hasProfileRole(u, "adviser")) && (aggregate.panelistNames || []).includes(u.name)) {
           await dbNotify(u.id, "grade", "Grades Released",
             `Final grades for Group ${groupNumber} (${aggregate.groupName}) have been released.`);
         }
@@ -3187,11 +3292,11 @@ app.get("/make-server-36da3eb1/final-grades/aggregated", async (c) => {
     if (profile?.role === "coordinator") {
       return c.json({ aggregates: aggregates.sort((a: any, b: any) => a.groupNumber - b.groupNumber) });
     }
-    if (profile?.role === "panelist" || profile?.role === "adviser") {
+    if (hasProfileRole(profile, "panelist") || hasProfileRole(profile, "adviser")) {
       const myGrades = await T("grades").all();
       const myGroupNums = new Set(myGrades.filter((g: any) => g.panelistId === userId).map((g: any) => g.groupNumber || g.groupId));
       // Advisers also see groups they advise
-      if (profile?.role === "adviser") {
+      if (hasProfileRole(profile, "adviser")) {
         const groups = await T("groups").all();
         groups.filter((g: any) => g.adviser?.toLowerCase() === profile?.name?.toLowerCase())
           .forEach((g: any) => myGroupNums.add(g.number || g.id));
@@ -4970,3 +5075,4 @@ Deno.serve({
     });
   },
 }, app.fetch);
+

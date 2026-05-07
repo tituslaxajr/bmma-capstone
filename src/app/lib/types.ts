@@ -15,6 +15,7 @@ export interface UserProfile {
   name: string;
   email: string;
   role: UserRole;
+  secondaryRoles?: UserRole[];
   group: string;
   adviser: string;
   department: string;
@@ -75,7 +76,7 @@ export interface Group {
 /* ═══ Defenses ═══ */
 
 export type DefenseMode = "face-to-face" | "online" | "hybrid";
-export type DefenseVerdict = "Pass" | "Pass with Minor Revision" | "Re-demonstration" | "Fail";
+export type DefenseVerdict = "Pass" | "Pass with Minor Revision" | "Pass with Major Revision/Re-demonstration" | "Re-demonstration" | "Fail";
 
 export interface Defense {
   id: number;

@@ -60,7 +60,7 @@ const VERDICT_COLORS = {
 function computeVerdict(groupScore: number): { verdict: Verdict; label: string; numericalGrade: string; color: string } {
   if (groupScore >= 92) return { verdict: "pass", label: "PASS", numericalGrade: "1.00", color: VERDICT_COLORS.pass };
   if (groupScore >= 82) return { verdict: "minor", label: "PASS WITH MINOR REVISION", numericalGrade: "2.00", color: VERDICT_COLORS.minor };
-  if (groupScore >= 60) return { verdict: "redemonstration", label: "RE-DEMONSTRATION", numericalGrade: "3.00", color: VERDICT_COLORS.redemonstration };
+  if (groupScore >= 60) return { verdict: "redemonstration", label: "PASS WITH MAJOR REVISION / RE-DEMONSTRATION", numericalGrade: "3.00", color: VERDICT_COLORS.redemonstration };
   return { verdict: "failed", label: "FAIL", numericalGrade: "5.00", color: VERDICT_COLORS.failed };
 }
 
@@ -385,7 +385,7 @@ function GradingGuidelinesPanel({ open, onClose }: { open: boolean; onClose: () 
                 {([
                   { verdict: "PASS", range: "92 – 100", grade: "1.00", color: VERDICT_COLORS.pass, desc: "Group demonstrates exemplary work across all criteria. Project is ready for final submission." },
                   { verdict: "Pass with Minor Revision", range: "82 – 91", grade: "2.00", color: VERDICT_COLORS.minor, desc: "Group shows strong work with small issues. Must submit corrections within the revision window." },
-                  { verdict: "Re-demonstration", range: "60 – 81", grade: "3.00", color: VERDICT_COLORS.redemonstration, desc: "Significant gaps found. Group must re-present after making substantial improvements." },
+                  { verdict: "Pass with Major Revision / Re-demonstration", range: "60 – 81", grade: "3.00", color: VERDICT_COLORS.redemonstration, desc: "Major revisions found. Re-demonstration may be required after substantial improvements." },
                   { verdict: "FAIL", range: "Below 60", grade: "5.00", color: VERDICT_COLORS.failed, desc: "Major deficiencies across multiple criteria. Group must repeat the capstone defense cycle." },
                 ] as const).map(v => (
                   <div key={v.verdict} className="p-4 rounded-xl" style={{ background: withAlpha(v.color, 0.04), border: `1.5px solid ${withAlpha(v.color, 0.15)}` }}>
@@ -410,7 +410,7 @@ function GradingGuidelinesPanel({ open, onClose }: { open: boolean; onClose: () 
                     <span style={{ fontSize: 9, fontWeight: 700, color: VERDICT_COLORS.failed }}>FAIL (0–59)</span>
                   </div>
                   <div className="flex items-center justify-center" style={{ width: "22%", background: withAlpha(VERDICT_COLORS.redemonstration, 0.15) }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: VERDICT_COLORS.redemonstration }}>RE-DEMO (60–81)</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: VERDICT_COLORS.redemonstration }}>MAJOR/RE-DEMO (60–81)</span>
                   </div>
                   <div className="flex items-center justify-center" style={{ width: "10%", background: withAlpha(VERDICT_COLORS.minor, 0.15) }}>
                     <span style={{ fontSize: 8, fontWeight: 700, color: VERDICT_COLORS.minor }}>MINOR (82–91)</span>
@@ -1852,7 +1852,7 @@ export function PanelistDefenseSessionPage() {
                 {([
                   { range: "92–100", label: "PASS", color: VERDICT_COLORS.pass, verdict: "pass" as Verdict },
                   { range: "82–91", label: "Pass with Minor Revision", color: VERDICT_COLORS.minor, verdict: "minor" as Verdict },
-                  { range: "60–81", label: "Re-demonstration", color: VERDICT_COLORS.redemonstration, verdict: "redemonstration" as Verdict },
+                  { range: "60–81", label: "Pass with Major Revision / Re-demonstration", color: VERDICT_COLORS.redemonstration, verdict: "redemonstration" as Verdict },
                   { range: "Below 60", label: "FAIL", color: VERDICT_COLORS.failed, verdict: "failed" as Verdict },
                 ] as const).map(row => {
                   const isActive = groupComplete && verdictInfo?.verdict === row.verdict;
@@ -2358,7 +2358,7 @@ export function PanelistDefenseSessionPage() {
                     {([
                       { key: "pass", label: "PASS", color: VERDICT_COLORS.pass, range: "92–100" },
                       { key: "minor", label: "Pass with Minor Revision", color: VERDICT_COLORS.minor, range: "82–91" },
-                      { key: "redemonstration", label: "Re-demonstration", color: VERDICT_COLORS.redemonstration, range: "60–81" },
+                      { key: "redemonstration", label: "Pass with Major Revision / Re-demonstration", color: VERDICT_COLORS.redemonstration, range: "60–81" },
                       { key: "failed", label: "FAIL", color: VERDICT_COLORS.failed, range: "< 60" },
                     ] as const).map(opt => {
                       const isActive = groupComplete && verdictInfo?.verdict === opt.key;
@@ -2688,3 +2688,4 @@ export function PanelistDefenseSessionPage() {
     </div>
   );
 }
+

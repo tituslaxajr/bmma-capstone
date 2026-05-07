@@ -205,7 +205,10 @@ function ManageGroupModal({ group, onClose, onSaved }: { group: GroupData; onClo
         const { users } = await apiFetch<{ users: any[] }>("/users", {}, session?.access_token!);
         setAvailableAdvisers(
           (users || [])
-            .filter((u: any) => u.role === "adviser" && u.status === "Active")
+            .filter((u: any) => {
+              const roles = [u.role, ...(u.secondaryRoles || [])].map((r: string) => r?.toLowerCase());
+              return roles.includes("adviser") && u.status === "Active";
+            })
             .map((u: any) => ({ id: u.id, name: u.name }))
         );
       } catch { /* silently fail */ }

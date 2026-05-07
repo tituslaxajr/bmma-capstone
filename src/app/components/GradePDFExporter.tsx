@@ -17,7 +17,7 @@ interface GradeRecord {
   groupPct: number;     // percentage
   individualAvg: number; // average individual score
   overallGrade: number;  // weighted final
-  verdict: string;       // "pass" | "minor" | "major" | "failed"
+  verdict: string;       // "pass" | "minor" | "redemonstration" | "major" | "failed"
   panelists: string[];
   feedback?: string;
 }
@@ -30,9 +30,10 @@ interface GradePDFExporterProps {
 
 const VERDICT_LABELS: Record<string, string> = {
   pass: "PASS",
-  minor: "Minor Revisions",
-  major: "Major Revisions",
-  failed: "Failed / Re-Defense",
+  minor: "Pass with Minor Revision",
+  redemonstration: "Pass with Major Revision / Re-demonstration",
+  major: "Pass with Major Revision / Re-demonstration",
+  failed: "Failed",
 };
 
 export function GradePDFExporter({
@@ -68,7 +69,7 @@ export function GradePDFExporter({
       // ── Summary stats ──
       const passed = grades.filter(g => g.verdict === "pass").length;
       const minor = grades.filter(g => g.verdict === "minor").length;
-      const major = grades.filter(g => g.verdict === "major").length;
+      const major = grades.filter(g => g.verdict === "major" || g.verdict === "redemonstration").length;
       const failed = grades.filter(g => g.verdict === "failed").length;
       const avgOverall = grades.length > 0
         ? (grades.reduce((s, g) => s + g.overallGrade, 0) / grades.length).toFixed(1)
@@ -76,7 +77,7 @@ export function GradePDFExporter({
 
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
-      doc.text(`Summary:  Pass: ${passed}  |  Minor Rev: ${minor}  |  Major Rev: ${major}  |  Failed: ${failed}  |  Avg Grade: ${avgOverall}%`, 14, 42);
+      doc.text(`Summary:  Pass: ${passed}  |  Minor Rev: ${minor}  |  Major Rev/Re-demo: ${major}  |  Failed: ${failed}  |  Avg Grade: ${avgOverall}%`, 14, 42);
       doc.setFont("helvetica", "normal");
 
       // ── Grades table ──
@@ -125,7 +126,7 @@ export function GradePDFExporter({
             const verdict = grades[data.row.index]?.verdict;
             if (verdict === "pass") data.cell.styles.textColor = [22, 163, 74];
             else if (verdict === "minor") data.cell.styles.textColor = [59, 130, 246];
-            else if (verdict === "major") data.cell.styles.textColor = [217, 119, 6];
+            else if (verdict === "major" || verdict === "redemonstration") data.cell.styles.textColor = [217, 119, 6];
             else if (verdict === "failed") data.cell.styles.textColor = [220, 38, 38];
           }
           // Bold the overall grade

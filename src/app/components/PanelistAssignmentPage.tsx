@@ -19,6 +19,11 @@ interface GroupAssignment {
 }
 interface PanelistUser { name: string; initials: string; avatarUrl?: string; }
 
+function userHasRole(user: any, role: "panelist" | "adviser") {
+  const roles = [user.role, ...(user.secondaryRoles || [])].map((r: string) => r?.toLowerCase());
+  return roles.includes(role);
+}
+
 /* ─── Helpers ─── */
 
 function getAssigned(g: GroupAssignment) { return g.slots.filter((s) => s.name).length; }
@@ -97,7 +102,7 @@ export function PanelistAssignmentPage() {
       }
 
       const panelistUsers: PanelistUser[] = (usersRes.users || [])
-        .filter((u: any) => u.role === "panelist" || u.role === "Panelist" || u.role === "adviser" || u.role === "Adviser")
+        .filter((u: any) => userHasRole(u, "panelist") || userHasRole(u, "adviser"))
         .map((u: any) => ({
           name: u.name,
           initials: u.avatar || u.name?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase(),

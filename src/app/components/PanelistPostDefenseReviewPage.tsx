@@ -48,7 +48,7 @@ function GroupReviewCard({ group, grade, onApprove, onRequestChanges, isProcessi
   const revisionChecklist: any[] = group.revisionChecklist || [];
   const requiredRevisions: any[] = grade?.revisions || [];
   const verdict = grade?.verdict || "pending";
-  const verdictLabel = verdict === "pass" ? "PASS" : verdict === "minor" ? "MINOR REVISIONS" : verdict === "major" ? "MAJOR REVISIONS" : verdict === "failed" ? "FAILED" : "PENDING";
+  const verdictLabel = verdict === "pass" ? "PASS" : verdict === "minor" ? "MINOR REVISION" : verdict === "major" || verdict === "redemonstration" ? "MAJOR REVISION / RE-DEMONSTRATION" : verdict === "failed" ? "FAILED" : "PENDING";
   const verdictColor = verdict === "pass" ? DT.success : verdict === "minor" ? DT.blue : verdict === "major" ? DT.warning : verdict === "failed" ? DT.error : DT.textDis;
 
   const needsReview = revStatus === "Submitted";

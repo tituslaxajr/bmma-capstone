@@ -42,10 +42,10 @@ const RATING_LABELS: Record<number, { label: string; desc: string; color: string
 
 /* Verdict table */
 function computeVerdict(rawPct: number): { verdict: Verdict; label: string; numericalGrade: string; color: string } {
-  if (rawPct >= 98) return { verdict: "pass", label: "PASS", numericalGrade: "1.00", color: DT.success };
-  if (rawPct >= 89) return { verdict: "minor", label: "PASS WITH MINOR REVISIONS", numericalGrade: rawPct >= 93 ? "1.25" : "1.75", color: DT.blue };
-  if (rawPct >= 75) return { verdict: "major", label: "PASS WITH MAJOR REVISIONS", numericalGrade: rawPct >= 83 ? "2.00" : rawPct >= 78 ? "2.50" : "3.00", color: DT.warning };
-  return { verdict: "failed", label: "FAILED / RE-DEFENSE", numericalGrade: "5.00", color: DT.error };
+  if (rawPct >= 92) return { verdict: "pass", label: "PASS", numericalGrade: "1.00", color: DT.success };
+  if (rawPct >= 82) return { verdict: "minor", label: "PASS WITH MINOR REVISION", numericalGrade: "2.00", color: DT.blue };
+  if (rawPct >= 60) return { verdict: "major", label: "PASS WITH MAJOR REVISION / RE-DEMONSTRATION", numericalGrade: "3.00", color: DT.warning };
+  return { verdict: "failed", label: "FAILED", numericalGrade: "5.00", color: DT.error };
 }
 
 /* ─── Shared styles ─── */

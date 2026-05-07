@@ -257,12 +257,28 @@ function FormattingStandardsCard() {
             </div>
           ))}
         </div>
-        <button className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer hover:bg-white/[0.03]" style={{
-          background: DT.blueDim, border: `1px solid ${withAlpha(DT.blue, 0.15)}`, color: DT.blue,
-        }}>
-          <Download size={14} />
-          <span style={{ fontSize: 12, fontWeight: 600, fontFamily: FT.h }}>Download Manuscript Template</span>
-        </button>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <a
+            href="/docs/FT-CRD-161-00_Capstone_Project_Manuscript_Template.docx"
+            download="FT-CRD-161-00_Capstone_Project_Manuscript_Template.docx"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer hover:bg-white/[0.03]"
+            style={{
+              background: DT.blueDim, border: `1px solid ${withAlpha(DT.blue, 0.15)}`, color: DT.blue,
+            }}>
+            <Download size={14} />
+            <span style={{ fontSize: 12, fontWeight: 600, fontFamily: FT.h }}>Download Manuscript Template</span>
+          </a>
+          <a
+            href="/docs/GU-CRD-032-03_BMMA_Capstone_Project_Guideline.pdf"
+            download="GU-CRD-032-03_BMMA_Capstone_Project_Guideline.pdf"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer hover:bg-white/[0.03]"
+            style={{
+              background: DT.yellowDim, border: `1px solid ${withAlpha(DT.yellow, 0.18)}`, color: DT.yellow,
+            }}>
+            <Download size={14} />
+            <span style={{ fontSize: 12, fontWeight: 600, fontFamily: FT.h }}>Download Capstone Project Guideline</span>
+          </a>
+        </div>
       </div>
     </Card>
   );

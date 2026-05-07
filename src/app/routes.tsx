@@ -30,6 +30,7 @@ const PanelistDefenseSessionPage = React.lazy(() => import("./components/Panelis
 const PanelistPostDefenseReviewPage = React.lazy(() => import("./components/PanelistPostDefenseReviewPage").then(m => ({ default: m.PanelistPostDefenseReviewPage })));
 const PanelistSettingsPage = React.lazy(() => import("./components/PanelistSettingsPage").then(m => ({ default: m.PanelistSettingsPage })));
 const PanelistGradeAggregatorPage = React.lazy(() => import("./components/PanelistGradeAggregatorPage").then(m => ({ default: m.PanelistGradeAggregatorPage })));
+const AdviserGradingPage = React.lazy(() => import("./components/AdviserGradingPage").then(m => ({ default: m.AdviserGradingPage })));
 
 const CoordinatorDashboard = React.lazy(() => import("./components/CoordinatorDashboard").then(m => ({ default: m.CoordinatorDashboard })));
 const UserManagementPage = React.lazy(() => import("./components/UserManagementPage").then(m => ({ default: m.UserManagementPage })));
@@ -229,7 +230,7 @@ export const router = createBrowserRouter([
           { path: "pre-defense/:groupNumber", Component: lazy(PanelistManuscriptDetailPage) },
           { path: "defense-session", Component: lazy(PanelistDefenseSessionPage) },
           { path: "post-defense", Component: lazy(PanelistPostDefenseReviewPage) },
-          { path: "grade-aggregator", Component: lazy(PanelistGradeAggregatorPage) },
+          { path: "grade-aggregator", Component: lazy(AdviserGradingPage) },
           { path: "settings", Component: PanelistSettingsWrapper },
         ],
       },

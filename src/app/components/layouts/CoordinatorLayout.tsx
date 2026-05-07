@@ -7,6 +7,7 @@ import { MobileDrawer } from "../MobileDrawer";
 import { BottomNavBar } from "../BottomNavBar";
 import { AnimatedOutlet } from "../AnimatedOutlet";
 import { OnboardingTour } from "../OnboardingTour";
+import { CoordinatorViewSwitcher } from "../CoordinatorViewSwitcher";
 import {
   LayoutDashboard, Users, FolderKanban, Link2,
   FileText, ShieldCheck, Award, Archive, Settings, Database,
@@ -95,6 +96,7 @@ export function CoordinatorLayout() {
         avatarUrl={user.avatarUrl}
         onHamburger={() => setDrawerOpen(true)}
         breadcrumb={currentSeg ? breadcrumb : undefined}
+        viewSwitcher={<CoordinatorViewSwitcher />}
       />
       <div className="flex flex-1 overflow-hidden">
         <div className="hidden md:flex">

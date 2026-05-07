@@ -1,5 +1,5 @@
 import { Menu, Bell, Search, ChevronDown } from "lucide-react";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, type ReactNode } from "react";
 import { NotificationCenter, useNotificationCount } from "./NotificationCenter";
 import { GlobalSearch } from "./GlobalSearch";
 
@@ -31,9 +31,10 @@ interface NavBarProps {
   avatarUrl?: string;
   breadcrumb?: string;
   onHamburger?: () => void;
+  viewSwitcher?: ReactNode;
 }
 
-export function NavBar({ userName = "Maria Santos", role = "Student", avatarUrl, breadcrumb, onHamburger }: NavBarProps) {
+export function NavBar({ userName = "Maria Santos", role = "Student", avatarUrl, breadcrumb, onHamburger, viewSwitcher }: NavBarProps) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const notifCount = useNotificationCount();
@@ -100,6 +101,8 @@ export function NavBar({ userName = "Maria Santos", role = "Student", avatarUrl,
 
         {/* ── Right: Actions ── */}
         <div className="flex items-center gap-2.5">
+          {viewSwitcher}
+
           <button
             onClick={() => setSearchOpen(true)}
             className="w-10 h-10 rounded-xl flex items-center justify-center transition cursor-pointer hover:bg-[rgba(255,255,255,0.05)]"

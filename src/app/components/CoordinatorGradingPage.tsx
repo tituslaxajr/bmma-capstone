@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 import {
   Loader2, Inbox, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp,
   Users, User, Send, BookOpen, ClipboardList, Award, XCircle,
-  ChevronRight, BarChart3,
+  ChevronRight, BarChart3, FileDown,
 } from "lucide-react";
 import { DT, FT, withAlpha } from "./cinematic-tokens";
 import { toast } from "sonner";
@@ -221,11 +221,11 @@ function AdviserGradingTab() {
 
 /* ═══════════════════════════════════════════
    COORDINATOR GRADING TAB (10%)
-   Sub-criteria: Task Performance (20%), Submission of Requirements (80%)
+   Sub-criteria: Performance of assigned tasks (20%), Submission of requirements (80%)
    ═══════════════════════════════════════════ */
 const COORD_CRITERIA = [
-  { key: "taskPerformance", label: "Task Performance", desc: "Quality and consistency in completing assigned coordinator tasks", weight: "20%" },
-  { key: "submissionOfRequirements", label: "Submission of Requirements", desc: "Completeness and timeliness of all required submissions", weight: "80%" },
+  { key: "taskPerformance", label: "Performance of assigned tasks", desc: "Quality and consistency in completing assigned coordinator tasks", weight: "20%" },
+  { key: "submissionOfRequirements", label: "Submission of requirements", desc: "Completeness and timeliness of all required submissions", weight: "80%" },
 ];
 
 function CoordinatorGradingTab() {
@@ -305,7 +305,7 @@ function CoordinatorGradingTab() {
         <div className="flex items-center gap-3 p-4 rounded-xl" style={{ background: DT.redDim, border: `1px solid rgba(248,113,113,0.15)` }}>
           <ClipboardList size={18} style={{ color: DT.red }} />
           <div style={{ fontSize: 13, color: DT.textSec }}>
-            <strong style={{ color: DT.textPri }}>Coordinator Grade (10% of Final)</strong> — Rate each student on Task Performance (20%) and Submission of Requirements (80%).
+            <strong style={{ color: DT.textPri }}>Coordinator Grade (10% of Final)</strong> — Rate each student on Performance of assigned tasks (20%) and Submission of requirements (80%).
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -396,6 +396,162 @@ function CoordinatorGradingTab() {
    FINAL GRADES OVERVIEW TAB (composite 60/30/10)
    with Aggregate & Release controls
    ═══════════════════════════════════════════ */
+const PANEL_GROUP_LABELS: Record<string, string> = {
+  results: "Results",
+  discussion: "Discussion",
+  output: "Output",
+  presentation: "Presentation",
+  qa: "Q&A",
+  manuscript: "Manuscript",
+};
+const PANEL_INDIVIDUAL_LABELS: Record<string, string> = {
+  communication: "Communication",
+  organization: "Organization",
+  effectiveness: "Effectiveness",
+};
+const ADVISER_LABELS: Record<string, string> = {
+  attendance: "Attendance",
+  participation: "Participation",
+  involvement: "Project involvement",
+};
+const COORD_LABELS: Record<string, string> = {
+  taskPerformance: "Assigned tasks",
+  submissionOfRequirements: "Requirements",
+};
+
+const fmtPct = (value: any) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}%` : "-";
+const fmtRaw = (value: any) => Number.isFinite(Number(value)) ? Number(value).toFixed(1) : "-";
+
+function scoreSummary(scores: Record<string, any> | undefined, labels: Record<string, string>) {
+  const entries = Object.entries(labels)
+    .filter(([key]) => scores?.[key] !== undefined && scores?.[key] !== null)
+    .map(([key, label]) => `${label}: ${fmtRaw(scores?.[key])}`);
+  const extra = Object.entries(scores || {})
+    .filter(([key]) => !labels[key] && typeof scores?.[key] !== "object")
+    .map(([key, value]) => `${key}: ${fmtRaw(value)}`);
+  return [...entries, ...extra];
+}
+
+function EncodedBreakdownSection({ data }: { data: any }) {
+  const panelGrades = data.rawPanelGrades || [];
+  const adviserScores = data.adviserGrade?.memberScores || {};
+  const coordScores = data.coordinatorGrade?.memberScores || {};
+  const members = data.members || [];
+
+  return (
+    <div className="space-y-4 mt-5">
+      <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${DT.borderHair}` }}>
+        <h4 style={{ fontFamily: FT.h, fontSize: 14, fontWeight: 800, color: DT.textPri }}>Encoded Defense Grades</h4>
+        <p className="mt-1" style={{ fontSize: 12, color: DT.textTer }}>
+          Panelist scores include the group grade and each student's individual defense ratings. The official defense grade averages the submitted panelist grades.
+        </p>
+        {data.defenseVerdict?.averageScore !== undefined && (
+          <div className="mt-3 flex flex-wrap gap-2" style={{ fontSize: 12 }}>
+            <span className="px-2 py-1 rounded-lg" style={{ background: DT.blueDim, color: DT.blue, fontWeight: 700 }}>
+              Defense Average: {fmtPct(data.defenseVerdict.averageScore)}
+            </span>
+            <span className="px-2 py-1 rounded-lg" style={{ background: DT.yellowDim, color: DT.yellow, fontWeight: 700 }}>
+              Verdict: {data.defenseVerdict.majorityVerdict || "-"}
+            </span>
+          </div>
+        )}
+        {panelGrades.length === 0 ? (
+          <div className="mt-3" style={{ fontSize: 12, color: DT.textDis }}>No panelist grades encoded yet.</div>
+        ) : (
+          <div className="mt-3 space-y-3">
+            {panelGrades.map((pg: any) => (
+              <div key={pg.id || pg.panelistName} className="rounded-lg p-3" style={{ background: DT.raised, border: `1px solid ${DT.borderHair}` }}>
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <span style={{ fontSize: 13, fontWeight: 800, color: DT.textPri }}>{pg.panelistName || "Panelist"}</span>
+                  <span style={{ fontSize: 11, color: DT.textTer }}>Weighted: {fmtPct(pg.weightedTotal)}</span>
+                  <span style={{ fontSize: 11, color: DT.textTer }}>Verdict: {pg.verdict || "-"}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {scoreSummary(pg.groupScores || pg.scores, PANEL_GROUP_LABELS).map(item => (
+                    <span key={item} className="px-2 py-1 rounded-md" style={{ fontSize: 11, color: DT.textSec, background: "rgba(255,255,255,0.035)" }}>{item}</span>
+                  ))}
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full" style={{ fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ borderBottom: `1px solid ${DT.borderHair}` }}>
+                        <th className="text-left py-1.5 pr-3" style={{ color: DT.textTer, fontWeight: 600 }}>Student</th>
+                        {Object.values(PANEL_INDIVIDUAL_LABELS).map(label => (
+                          <th key={label} className="text-center py-1.5 px-2" style={{ color: DT.textTer, fontWeight: 600 }}>{label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {members.map((name: string) => {
+                        const row = pg.individualScores?.[name] || {};
+                        return (
+                          <tr key={name} style={{ borderBottom: `1px solid ${DT.borderHair}` }}>
+                            <td className="py-1.5 pr-3" style={{ color: DT.textPri, fontWeight: 600 }}>{name}</td>
+                            {Object.keys(PANEL_INDIVIDUAL_LABELS).map(key => (
+                              <td key={key} className="text-center py-1.5 px-2" style={{ color: DT.textSec }}>{fmtRaw(row[key])}</td>
+                            ))}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <EncodedRoleTable title="Adviser Encoded Grades" note="30% of final grade" labels={ADVISER_LABELS} scores={adviserScores} members={members} accent={DT.success} />
+        <EncodedRoleTable title="Coordinator Encoded Grades" note="10% of final grade" labels={COORD_LABELS} scores={coordScores} members={members} accent={DT.red} />
+      </div>
+    </div>
+  );
+}
+
+function EncodedRoleTable({ title, note, labels, scores, members, accent }: {
+  title: string; note: string; labels: Record<string, string>; scores: Record<string, any>; members: string[]; accent: string;
+}) {
+  const hasScores = members.some(name => scores?.[name]);
+  return (
+    <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${DT.borderHair}` }}>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <h4 style={{ fontFamily: FT.h, fontSize: 14, fontWeight: 800, color: DT.textPri }}>{title}</h4>
+        <span className="px-2 py-1 rounded-lg" style={{ background: withAlpha(accent, 0.08), color: accent, fontSize: 11, fontWeight: 700 }}>{note}</span>
+      </div>
+      {!hasScores ? (
+        <div style={{ fontSize: 12, color: DT.textDis }}>No grades encoded yet.</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full" style={{ fontSize: 12 }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${DT.borderHair}` }}>
+                <th className="text-left py-1.5 pr-3" style={{ color: DT.textTer, fontWeight: 600 }}>Student</th>
+                {Object.values(labels).map(label => (
+                  <th key={label} className="text-center py-1.5 px-2" style={{ color: DT.textTer, fontWeight: 600 }}>{label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {members.map(name => (
+                <tr key={name} style={{ borderBottom: `1px solid ${DT.borderHair}` }}>
+                  <td className="py-1.5 pr-3" style={{ color: DT.textPri, fontWeight: 600 }}>{name}</td>
+                  {Object.keys(labels).map(key => (
+                    <td key={key} className="text-center py-1.5 px-2" style={{ color: scores?.[name] ? DT.textSec : DT.textDis }}>
+                      {scores?.[name] ? fmtRaw(scores[name][key]) : "-"}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FinalGradesTab() {
   const [overview, setOverview] = useState<any[]>([]);
   const [aggregates, setAggregates] = useState<Record<number, any>>({});
@@ -404,6 +560,7 @@ function FinalGradesTab() {
   const [memberGrades, setMemberGrades] = useState<Record<number, any>>({});
   const [aggregating, setAggregating] = useState<number | "all" | null>(null);
   const [releasing, setReleasing] = useState<number | null>(null);
+  const [exportingBreakdown, setExportingBreakdown] = useState<number | null>(null);
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -422,11 +579,25 @@ function FinalGradesTab() {
   useEffect(() => { fetchOverview(); }, [fetchOverview]);
 
   const fetchGroupGrades = async (groupNumber: number) => {
-    if (memberGrades[groupNumber]) return;
+    if (memberGrades[groupNumber]) return memberGrades[groupNumber];
     try {
-      const res = await apiFetch<any>(`/final-grades/group/${groupNumber}`);
-      setMemberGrades(prev => ({ ...prev, [groupNumber]: res }));
-    } catch (err) { console.error(err); }
+      const [finalRes, panelRes, adviserRes, coordRes, verdictRes] = await Promise.all([
+        apiFetch<any>(`/final-grades/group/${groupNumber}`),
+        apiFetch<any>(`/grades/group/${groupNumber}`),
+        apiFetch<any>(`/adviser-grades/group/${groupNumber}`),
+        apiFetch<any>(`/coordinator-grades/group/${groupNumber}`),
+        apiFetch<any>(`/defense-verdict/${groupNumber}`),
+      ]);
+      const merged = {
+        ...finalRes,
+        rawPanelGrades: panelRes.grades || [],
+        adviserGrade: adviserRes.grade || null,
+        coordinatorGrade: coordRes.grade || null,
+        defenseVerdict: verdictRes.verdict || null,
+      };
+      setMemberGrades(prev => ({ ...prev, [groupNumber]: merged }));
+      return merged;
+    } catch (err) { console.error(err); return null; }
   };
 
   const toggleExpand = (gn: number) => {
@@ -473,6 +644,107 @@ function FinalGradesTab() {
       }
     } catch (err: any) { toast.error(err.message || "Failed"); }
     finally { setReleasing(null); }
+  };
+
+  const handleExportBreakdown = async (gn: number, groupLabel: string) => {
+    setExportingBreakdown(gn);
+    try {
+      if (!memberGrades[gn]) await fetchGroupGrades(gn);
+      const data = memberGrades[gn] || await fetchGroupGrades(gn);
+      if (!data) {
+        toast.error("Open the group first so the encoded grades can load.");
+        return;
+      }
+      const { jsPDF } = await import("jspdf");
+      const autoTable = (await import("jspdf-autotable")).default;
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const title = `${groupLabel || `Group ${gn}`} - Full Grade Breakdown`;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text("BMMA Capstone Final Grade Breakdown", 14, 16);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(title, 14, 23);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 29);
+
+      const finalRows = (data.members || []).map((name: string) => {
+        const mg = data.memberFinalGrades?.[name] || {};
+        return [
+          name,
+          fmtPct(mg.defenseScore),
+          fmtPct(mg.adviserScore),
+          fmtPct(mg.coordScore),
+          fmtPct(mg.finalRaw),
+          mg.numericalGrade || "-",
+          mg.verdict || "-",
+        ];
+      });
+      autoTable(doc, {
+        startY: 36,
+        head: [["Student", "Defense 60%", "Adviser 30%", "Coord 10%", "Final Raw", "Grade", "Verdict"]],
+        body: finalRows,
+        theme: "grid",
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [30, 40, 60], textColor: 255 },
+      });
+
+      let y = (doc as any).lastAutoTable.finalY + 8;
+      const panelRows: any[] = [];
+      (data.rawPanelGrades || []).forEach((pg: any) => {
+        panelRows.push([
+          pg.panelistName || "Panelist",
+          "Group",
+          "All",
+          scoreSummary(pg.groupScores || pg.scores, PANEL_GROUP_LABELS).join("; "),
+          fmtPct(pg.weightedTotal),
+          pg.verdict || "-",
+        ]);
+        (data.members || []).forEach((name: string) => {
+          panelRows.push([
+            pg.panelistName || "Panelist",
+            "Individual",
+            name,
+            scoreSummary(pg.individualScores?.[name], PANEL_INDIVIDUAL_LABELS).join("; "),
+            "",
+            "",
+          ]);
+        });
+      });
+      autoTable(doc, {
+        startY: y,
+        head: [["Encoded By", "Type", "Student/Scope", "Scores", "Weighted", "Verdict"]],
+        body: panelRows.length ? panelRows : [["-", "Defense", "-", "No panelist grades encoded yet.", "-", "-"]],
+        theme: "grid",
+        styles: { fontSize: 7.4, cellPadding: 1.8, overflow: "linebreak" },
+        headStyles: { fillColor: [36, 83, 145], textColor: 255 },
+        columnStyles: { 3: { cellWidth: 116 } },
+      });
+
+      y = (doc as any).lastAutoTable.finalY + 8;
+      const adviserRows = (data.members || []).map((name: string) => [
+        name,
+        scoreSummary(data.adviserGrade?.memberScores?.[name], ADVISER_LABELS).join("; ") || "Not encoded",
+        scoreSummary(data.coordinatorGrade?.memberScores?.[name], COORD_LABELS).join("; ") || "Not encoded",
+      ]);
+      autoTable(doc, {
+        startY: y,
+        head: [["Student", "Adviser Encoded Scores", "Coordinator Encoded Scores"]],
+        body: adviserRows,
+        theme: "grid",
+        styles: { fontSize: 7.6, cellPadding: 1.8, overflow: "linebreak" },
+        headStyles: { fillColor: [34, 120, 88], textColor: 255 },
+      });
+
+      const filename = `Group_${gn}_Full_Grade_Breakdown_${new Date().toISOString().slice(0, 10)}.pdf`;
+      doc.save(filename);
+      toast.success(`PDF exported: ${filename}`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export full breakdown.");
+    } finally {
+      setExportingBreakdown(null);
+    }
   };
 
   const releasedCount = Object.values(aggregates).filter(a => a?.released).length;
@@ -527,10 +799,10 @@ function FinalGradesTab() {
 
       {/* Rating scale legend */}
       <div className="flex flex-wrap gap-3 text-xs" style={{ color: DT.textTer }}>
-        <span><span style={{ fontWeight: 700, color: DT.success }}>98–100%</span> Pass (1.00)</span>
-        <span><span style={{ fontWeight: 700, color: DT.blue }}>89–97%</span> Minor Rev (1.25–1.75)</span>
-        <span><span style={{ fontWeight: 700, color: DT.warning }}>75–88%</span> Major Rev (2.00–3.00)</span>
-        <span><span style={{ fontWeight: 700, color: DT.error }}>&lt;75%</span> Failed (5.00)</span>
+        <span><span style={{ fontWeight: 700, color: DT.success }}>92-100%</span> Pass (1.00)</span>
+        <span><span style={{ fontWeight: 700, color: DT.blue }}>82-91%</span> Minor Revision (2.00)</span>
+        <span><span style={{ fontWeight: 700, color: DT.warning }}>60-81%</span> Major Revision/Re-demo (3.00)</span>
+        <span><span style={{ fontWeight: 700, color: DT.error }}>&lt;60%</span> Failed (5.00)</span>
       </div>
 
       {/* Grade Distribution Chart */}
@@ -616,6 +888,13 @@ function FinalGradesTab() {
                           {agg.released ? "Unrelease" : "Release to Students"}
                         </button>
                       )}
+                      <button onClick={(e) => { e.stopPropagation(); handleExportBreakdown(gn, g.groupName || `Group ${gn}`); }}
+                        disabled={!data || exportingBreakdown === gn}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition cursor-pointer disabled:opacity-50 hover:opacity-90"
+                        style={{ background: withAlpha(DT.purple, 0.08), border: `1px solid ${withAlpha(DT.purple, 0.20)}`, fontSize: 12, fontWeight: 600, color: DT.purple }}>
+                        {exportingBreakdown === gn ? <Loader2 size={12} className="animate-spin" /> : <FileDown size={12} />}
+                        Print Full Breakdown
+                      </button>
                       {agg?.releasedAt && (
                         <span style={{ fontSize: 11, color: DT.textTer }}>
                           Released {new Date(agg.releasedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
@@ -646,7 +925,7 @@ function FinalGradesTab() {
                               if (!mg) return null;
                               const vc = mg.verdict === "Pass" ? DT.success :
                                 mg.verdict?.includes("Minor") ? DT.blue :
-                                mg.verdict?.includes("Major") ? DT.warning : DT.error;
+                                mg.verdict?.includes("Major") || mg.verdict?.includes("demonstration") ? DT.warning : DT.error;
                               return (
                                 <tr key={name} style={{ borderBottom: `1px solid ${DT.borderHair}` }}>
                                   <td className="py-2.5 pr-4" style={{ fontWeight: 600, color: DT.textPri }}>{name}</td>
@@ -672,7 +951,7 @@ function FinalGradesTab() {
                                     }}>
                                       {mg.verdict === "Pass" ? <CheckCircle2 size={10} /> :
                                        mg.verdict?.includes("Minor") ? <AlertTriangle size={10} /> :
-                                       mg.verdict?.includes("Major") ? <AlertTriangle size={10} /> : <XCircle size={10} />}
+                                       mg.verdict?.includes("Major") || mg.verdict?.includes("demonstration") ? <AlertTriangle size={10} /> : <XCircle size={10} />}
                                       {mg.verdict}
                                     </span>
                                   </td>
@@ -692,6 +971,7 @@ function FinalGradesTab() {
                             </span>
                           </div>
                         )}
+                        <EncodedBreakdownSection data={data} />
                       </div>
                     )}
                   </div>

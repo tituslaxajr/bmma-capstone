@@ -8,6 +8,7 @@ import { MobileDrawer } from "../MobileDrawer";
 import { apiFetch } from "../../lib/supabase";
 import { AnimatedOutlet } from "../AnimatedOutlet";
 import { OnboardingTour } from "../OnboardingTour";
+import { CoordinatorViewSwitcher } from "../CoordinatorViewSwitcher";
 import {
   LayoutDashboard, FileText,
   Calendar, BarChart3,
@@ -95,7 +96,7 @@ export function StudentLayout() {
               const verdictCounts: Record<string, number> = {};
               grades.forEach((g: any) => { verdictCounts[g.verdict] = (verdictCounts[g.verdict] || 0) + 1; });
               const topVerdict = Object.entries(verdictCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
-              const verdictMap: Record<string, string> = { "pass": "passed", "minor": "revisions", "major": "revisions", "passed": "passed" };
+              const verdictMap: Record<string, string> = { "pass": "passed", "minor": "revisions", "major": "redemonstration", "redemonstration": "redemonstration", "passed": "passed" };
               const normalized = verdictMap[topVerdict] || topVerdict;
               setPeerEvalLocked(normalized !== "passed");
             } else {
@@ -110,7 +111,9 @@ export function StudentLayout() {
     return () => { cancelled = true; };
   }, [location.pathname]);
 
-  if (!user || user.role !== "student") return <Navigate to="/login" replace />;
+  const isCoordinatorMonitoring = user?.role === "coordinator";
+
+  if (!user || (user.role !== "student" && user.role !== "coordinator")) return <Navigate to="/login" replace />;
   if (needsProfileSetup) return <Navigate to="/setup" replace />;
 
   // Build drawer items — augment Peer Evaluation with lock icon when gated
@@ -146,6 +149,7 @@ export function StudentLayout() {
         avatarUrl={user.avatarUrl}
         onHamburger={() => setDrawerOpen(true)}
         breadcrumb={currentSeg ? breadcrumb : undefined}
+        viewSwitcher={isCoordinatorMonitoring ? <CoordinatorViewSwitcher /> : undefined}
       />
       <div className="flex flex-1 overflow-hidden">
         <div className="hidden md:flex">

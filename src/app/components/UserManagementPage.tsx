@@ -24,6 +24,7 @@ type TabKey = "all" | "students" | "panelists" | "advisers";
 interface UserRecord {
   id: string; name: string; email: string; role: UserRole; group: string;
   adviser: string; department: string; status: UserStatus; avatar: string; createdAt: string;
+  secondaryRoles?: UserRole[];
   avatarUrl?: string | null;
 }
 
@@ -35,6 +36,29 @@ const roleBadge: Record<string, { c: string; bg: string; b: string; icon: React.
   coordinator: { c: DT.yellow, bg: DT.yellowDim, b: "rgba(255,209,0,0.15)", icon: <Settings size={11} /> },
 };
 const roleLabel: Record<string, string> = { student: "Student", panelist: "Panelist", adviser: "Adviser", coordinator: "Coordinator" };
+
+function getUserRoles(user: Pick<UserRecord, "role" | "secondaryRoles">): UserRole[] {
+  return Array.from(new Set([user.role, ...(user.secondaryRoles || [])]));
+}
+
+function hasRole(user: Pick<UserRecord, "role" | "secondaryRoles">, role: UserRole) {
+  return getUserRoles(user).includes(role);
+}
+
+function RoleBadges({ user }: { user: Pick<UserRecord, "role" | "secondaryRoles"> }) {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      {getUserRoles(user).map((r) => {
+        const rb = roleBadge[r] || roleBadge.student;
+        return (
+          <span key={r} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg" style={{ fontSize: 11, fontWeight: 600, color: rb.c, background: rb.bg, border: `1px solid ${rb.b}` }}>
+            {rb.icon} {roleLabel[r] || r}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
 
 /* ═══ Stat Card ═══ */
 function StatCard({ icon, label, value, accent, accentDim }: { icon: React.ReactNode; label: string; value: number; accent: string; accentDim: string }) {
@@ -164,6 +188,7 @@ function ActionMenu({ user, onEdit, onToggle, onDelete }: { user: UserRecord; on
 /* ═══ User Modal ═══ */
 function UserModal({ mode, user, onClose, onSaved }: { mode: "add" | "edit"; user?: UserRecord | null; onClose: () => void; onSaved: () => void }) {
   const [role, setRole] = useState<UserRole>(user?.role || "student");
+  const [secondaryRoles, setSecondaryRoles] = useState<UserRole[]>(user?.secondaryRoles || []);
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
   const [group, setGroup] = useState(user?.group || "");
@@ -178,6 +203,23 @@ function UserModal({ mode, user, onClose, onSaved }: { mode: "add" | "edit"; use
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const isEdit = mode === "edit";
+  const canAddFacultyRole = role === "panelist" || role === "adviser";
+  const complementaryFacultyRole: UserRole | null = role === "panelist" ? "adviser" : role === "adviser" ? "panelist" : null;
+
+  const setPrimaryRole = (nextRole: UserRole) => {
+    setRole(nextRole);
+    setSecondaryRoles((prev) =>
+      nextRole === "panelist" || nextRole === "adviser"
+        ? prev.filter((r) => r !== nextRole && (r === "panelist" || r === "adviser"))
+        : []
+    );
+  };
+
+  const toggleSecondaryRole = (secondaryRole: UserRole) => {
+    setSecondaryRoles((prev) =>
+      prev.includes(secondaryRole) ? prev.filter((r) => r !== secondaryRole) : [...prev, secondaryRole]
+    );
+  };
 
   /* Fetch existing groups from database for the dropdown */
   useEffect(() => {
@@ -238,12 +280,13 @@ function UserModal({ mode, user, onClose, onSaved }: { mode: "add" | "edit"; use
     try {
       const session = (await supabase.auth.getSession()).data.session;
       const token = session?.access_token!;
+      const payload = { name, role, secondaryRoles, group: group || "—", adviser: adviser || "—", department };
       if (isEdit && user) {
-        await apiFetch(`/users/${user.id}`, { method: "PUT", body: JSON.stringify({ name, role, group: group || "—", adviser: adviser || "—", department }) }, token);
+        await apiFetch(`/users/${user.id}`, { method: "PUT", body: JSON.stringify(payload) }, token);
         if (avatarFile) await uploadAvatarForUser(user.id, token);
         toast.success(`${name}'s account updated successfully.`);
       } else {
-        const res = await apiFetch<any>("/auth/signup", { method: "POST", body: JSON.stringify({ email, password: tempPw, name, role, group, adviser, department }) }, token);
+        const res = await apiFetch<any>("/auth/signup", { method: "POST", body: JSON.stringify({ email, password: tempPw, ...payload }) }, token);
         // Try to upload avatar for newly created user
         if (avatarFile && res?.user?.id) {
           await uploadAvatarForUser(res.user.id, token);
@@ -345,12 +388,38 @@ function UserModal({ mode, user, onClose, onSaved }: { mode: "add" | "edit"; use
               </div>
             )}
             <div className="grid grid-cols-4 gap-2">
-              <RoleOption icon={<GraduationCap size={20} />} label="Student" selected={role === "student"} onClick={() => setRole("student")} />
-              <RoleOption icon={<ShieldCheck size={20} />} label="Panelist" selected={role === "panelist"} onClick={() => setRole("panelist")} />
-              <RoleOption icon={<BookOpen size={20} />} label="Adviser" selected={role === "adviser"} onClick={() => setRole("adviser")} />
-              <RoleOption icon={<Settings size={20} />} label="Coordinator" selected={role === "coordinator"} onClick={() => setRole("coordinator")} />
+              <RoleOption icon={<GraduationCap size={20} />} label="Student" selected={role === "student"} onClick={() => setPrimaryRole("student")} />
+              <RoleOption icon={<ShieldCheck size={20} />} label="Panelist" selected={role === "panelist"} onClick={() => setPrimaryRole("panelist")} />
+              <RoleOption icon={<BookOpen size={20} />} label="Adviser" selected={role === "adviser"} onClick={() => setPrimaryRole("adviser")} />
+              <RoleOption icon={<Settings size={20} />} label="Coordinator" selected={role === "coordinator"} onClick={() => setPrimaryRole("coordinator")} />
             </div>
           </div>
+
+          {canAddFacultyRole && complementaryFacultyRole && (
+            <div className="rounded-xl p-4 flex items-center justify-between gap-4" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${DT.borderHair}` }}>
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: roleBadge[complementaryFacultyRole].bg, color: roleBadge[complementaryFacultyRole].c }}>
+                  {complementaryFacultyRole === "panelist" ? <ShieldCheck size={18} /> : <BookOpen size={18} />}
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: DT.textPri }}>
+                    Also allow {roleLabel[complementaryFacultyRole]} access
+                  </div>
+                  <div style={{ fontSize: 11, color: DT.textTer, lineHeight: 1.5 }}>
+                    Coordinator can mark faculty as both adviser and panelist using this switch.
+                  </div>
+                </div>
+              </div>
+              <button type="button" onClick={() => toggleSecondaryRole(complementaryFacultyRole)}
+                className="relative w-11 h-6 rounded-full transition cursor-pointer shrink-0"
+                style={{ background: secondaryRoles.includes(complementaryFacultyRole) ? DT.success : DT.borderDef }}>
+                <span className="absolute top-1 w-4 h-4 rounded-full transition" style={{
+                  left: secondaryRoles.includes(complementaryFacultyRole) ? 23 : 4,
+                  background: secondaryRoles.includes(complementaryFacultyRole) ? DT.base : DT.textTer,
+                }} />
+              </button>
+            </div>
+          )}
 
           {role === "student" && (
             <div className="space-y-4">
@@ -443,9 +512,7 @@ function DeleteConfirmModal({ user, deleting, onConfirm, onClose }: { user: User
             <div className="truncate" style={{ fontFamily: FT.h, fontSize: 14, fontWeight: 600, color: DT.textPri }}>{user.name}</div>
             <div className="truncate" style={{ fontSize: 12, color: DT.textTer }}>{user.email}</div>
           </div>
-          <span className="shrink-0 px-2 py-0.5 rounded-full" style={{ fontSize: 10, fontWeight: 600, color: roleBadge[user.role]?.c || DT.textSec, background: roleBadge[user.role]?.bg || "rgba(255,255,255,0.04)" }}>
-            {roleLabel[user.role]}
-          </span>
+          <RoleBadges user={user} />
         </div>
 
         {/* Actions */}
@@ -466,7 +533,6 @@ function DeleteConfirmModal({ user, deleting, onConfirm, onClose }: { user: User
 
 /* ═══ Mobile User Card ═══ */
 function MobileUserCard({ user, idx, onEdit, onToggle, onDelete }: { user: UserRecord; idx: number; onEdit: () => void; onToggle: () => void; onDelete: () => void }) {
-  const rb = roleBadge[user.role] || roleBadge.student;
   return (
     <div className="rounded-2xl p-4 transition-all duration-200"
       style={{ background: `linear-gradient(145deg, ${DT.raised}, ${DT.elevated})`, border: `1px solid ${DT.borderSub}` }}>
@@ -481,10 +547,7 @@ function MobileUserCard({ user, idx, onEdit, onToggle, onDelete }: { user: UserR
           </div>
           <div className="truncate mt-0.5" style={{ fontSize: 12, color: DT.textTer }}>{user.email}</div>
           <div className="flex items-center gap-2 mt-2">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
-              style={{ fontSize: 10, fontWeight: 600, color: rb.c, background: rb.bg, border: `1px solid ${rb.b}` }}>
-              {rb.icon} {roleLabel[user.role]}
-            </span>
+            <RoleBadges user={user} />
             {user.group && user.group !== "—" && (
               <span style={{ fontSize: 11, color: DT.textTer }}>{user.group}</span>
             )}
@@ -540,8 +603,8 @@ export function UserManagementPage() {
 
   const tabs = useMemo(() => {
     const studentCount = users.filter((u) => u.role === "student").length;
-    const panelistCount = users.filter((u) => u.role === "panelist").length;
-    const adviserCount = users.filter((u) => u.role === "adviser").length;
+    const panelistCount = users.filter((u) => hasRole(u, "panelist")).length;
+    const adviserCount = users.filter((u) => hasRole(u, "adviser")).length;
     return [
       { key: "all" as TabKey, label: "All Users", count: users.length, icon: <Users size={15} /> },
       { key: "students" as TabKey, label: "Students", count: studentCount, icon: <GraduationCap size={15} /> },
@@ -564,10 +627,10 @@ export function UserManagementPage() {
   const { filtered, total, totalPages, paged, uniqueGroups } = useMemo(() => {
     let f = [...users];
     if (activeTab === "students") f = f.filter((u) => u.role === "student");
-    else if (activeTab === "panelists") f = f.filter((u) => u.role === "panelist");
-    else if (activeTab === "advisers") f = f.filter((u) => u.role === "adviser");
+    else if (activeTab === "panelists") f = f.filter((u) => hasRole(u, "panelist"));
+    else if (activeTab === "advisers") f = f.filter((u) => hasRole(u, "adviser"));
     if (debouncedSearch.trim()) { const q = debouncedSearch.toLowerCase(); f = f.filter((u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)); }
-    if (roleFilter) f = f.filter((u) => u.role === roleFilter.toLowerCase());
+    if (roleFilter) f = f.filter((u) => hasRole(u, roleFilter.toLowerCase() as UserRole));
     if (statusFilter) f = f.filter((u) => u.status === statusFilter);
     if (groupFilter) f = f.filter((u) => u.group === groupFilter);
 
@@ -776,7 +839,6 @@ export function UserManagementPage() {
                   </td>
                 </tr>
               ) : paged.map((u, idx) => {
-                const rb = roleBadge[u.role] || roleBadge.student;
                 return (
                   <tr key={u.id} className="group transition hover:bg-white/[0.015]" style={{ borderBottom: `1px solid ${DT.borderHair}` }}>
                     <td className="px-5 py-3.5">
@@ -787,9 +849,7 @@ export function UserManagementPage() {
                     </td>
                     <td className="px-5 py-3.5" style={{ color: DT.textTer, fontSize: 13 }}>{u.email}</td>
                     <td className="px-5 py-3.5">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg" style={{ fontSize: 11, fontWeight: 600, color: rb.c, background: rb.bg, border: `1px solid ${rb.b}` }}>
-                        {rb.icon} {roleLabel[u.role] || u.role}
-                      </span>
+                      <RoleBadges user={u} />
                     </td>
                     <td className="px-5 py-3.5" style={{ color: DT.textTer, fontSize: 13 }}>{u.group && u.group !== "—" ? u.group : <span style={{ color: DT.textDis }}>—</span>}</td>
                     <td className="px-5 py-3.5" style={{ color: DT.textTer, fontSize: 13 }}>{u.adviser && u.adviser !== "—" ? u.adviser : <span style={{ color: DT.textDis }}>—</span>}</td>

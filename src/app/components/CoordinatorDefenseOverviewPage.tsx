@@ -77,8 +77,8 @@ const verdictMap: Record<string, { label: string; color: string }> = {
   pass: { label: "Pass", color: DT.success },
   revisions: { label: "Minor Revision", color: DT.blue },
   minor: { label: "Minor Revision", color: DT.blue },
-  redemonstration: { label: "Re-demo", color: DT.warning },
-  major: { label: "Re-demo", color: DT.warning },
+  redemonstration: { label: "Major Rev/Re-demo", color: DT.warning },
+  major: { label: "Major Rev/Re-demo", color: DT.warning },
   failed: { label: "Fail", color: DT.red },
   fail: { label: "Fail", color: DT.red },
 };

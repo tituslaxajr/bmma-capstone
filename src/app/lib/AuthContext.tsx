@@ -4,8 +4,10 @@ import { resetDismissedTipsCache } from "./useDismissedTips";
 import { toast } from "sonner";
 
 export interface AppUser {
+  id?: string;
   email: string;
   role: "student" | "panelist" | "adviser" | "coordinator";
+  secondaryRoles?: ("student" | "panelist" | "adviser" | "coordinator")[];
   name: string;
   avatarUrl?: string;
 }
@@ -43,8 +45,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         const meta = session.user.user_metadata;
         const u: AppUser = {
+          id: session.user.id,
           email: session.user.email || "",
           role: (meta?.role || "student") as AppUser["role"],
+          secondaryRoles: meta?.secondaryRoles || [],
           name: meta?.name || session.user.email?.split("@")[0] || "",
           avatarUrl: meta?.avatarUrl,
         };
@@ -52,10 +56,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const { profile } = await apiFetch<{ profile: any }>("/me/context", {}, session.access_token);
           if (profile) {
-            if (profile.avatarUrl) {
-              u.avatarUrl = profile.avatarUrl;
-              startTransition(() => setUser({ ...u }));
-            }
+            u.role = profile.role || u.role;
+            u.secondaryRoles = profile.secondaryRoles || [];
+            u.name = profile.name || u.name;
+            if (profile.avatarUrl) u.avatarUrl = profile.avatarUrl;
+            startTransition(() => setUser({ ...u }));
             if (!profile.profileSetupComplete) startTransition(() => setNeedsProfileSetup(true));
           }
         } catch {}
@@ -91,7 +96,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session) {
         const { profile } = await apiFetch<{ profile: any }>("/me/context", {}, session.access_token);
         if (profile) {
-          if (profile.avatarUrl) startTransition(() => setUser((prev) => prev ? { ...prev, avatarUrl: profile.avatarUrl } : prev));
+          startTransition(() => setUser((prev) => prev ? {
+            ...prev,
+            role: profile.role || prev.role,
+            secondaryRoles: profile.secondaryRoles || [],
+            name: profile.name || prev.name,
+            avatarUrl: profile.avatarUrl || prev.avatarUrl,
+          } : prev));
           if (!profile.profileSetupComplete) startTransition(() => setNeedsProfileSetup(true));
         }
       }

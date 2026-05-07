@@ -1,0 +1,38 @@
+Found 67 KV entries
+Grouped into prefixes: landing, user, counter, group, submission, timeline, dlprog, deadline, notification, ai-plagiarism-report, manuscript-text, announcement
+   counter groups: Could not find the table 'public.id_sequences' in the schema cache
+   counter notification: Could not find the table 'public.id_sequences' in the schema cache
+   counter deadlines: Could not find the table 'public.id_sequences' in the schema cache
+   counter ai-plagiarism-report: Could not find the table 'public.id_sequences' in the schema cache
+   counter announcements: Could not find the table 'public.id_sequences' in the schema cache
+Done id_sequences: migrated 0/5 counters
+  [landing] sample key="landing:group:1" value keys=id,area,name,type,title,status,adviser,members
+Done landing_groups: migrated 0/8 (8 errors)
+   Errors: landing:group:1: upsert=Could not find the table 'public.landing_groups' in the schema cache | insert=Could not find the table 'public.landing_groups' in the schema cache; landing:group:2: upsert=Could not find the table 'public.landing_groups' in the schema cache | insert=Could not find the table 'public.landing_groups' in the schema cache; landing:group:3: upsert=Could not find the table 'public.landing_groups' in the schema cache | insert=Could not find the table 'public.landing_groups' in the schema cache; landing:group:4: upsert=Could not find the table 'public.landing_groups' in the schema cache | insert=Could not find the table 'public.landing_groups' in the schema cache; landing:group:5: upsert=Could not find the table 'public.landing_groups' in the schema cache | insert=Could not find the table 'public.landing_groups' in the schema cache... +3 more
+  [user] sample key="user:f708fbe6-043f-4f50-9b41-e64468679cfb" value keys=id,name,role,email,group,avatar,status,adviser,createdAt,department
+Done user_profiles: migrated 18/19 (1 errors)
+   Errors: user:ec515285-5608-4d82-9431-d4e44fbe0db6: upsert=new row for relation "user_profiles" violates check constraint "user_profiles_role_check" | insert=new row for relation "user_profiles" violates check constraint "user_profiles_role_check"
+  [group] sample key="group:1" value keys=id,type,title,client,number,status,adviser,members,progress,createdAt,panelists,outputType,description,workingLink,projectOutput,manuscriptDate,manuscriptFile,manuscriptSize,submissionType,adviserInitials,archiveApproval,archivePeerEval,archiveSoftCopy,manuscriptPages,archiveHardbound,archiveRevisions,manuscriptStatus,manuscriptComments,manuscriptPanelSent,manuscriptPanelCount,submissionInstructions
+Done groups: migrated 0/4 (4 errors)
+   Errors: group:1: upsert=Could not find the 'members' column of 'groups' in the schema cache | insert=Could not find the 'members' column of 'groups' in the schema cache; group:2: upsert=Could not find the 'members' column of 'groups' in the schema cache | insert=Could not find the 'members' column of 'groups' in the schema cache; group:3: upsert=Could not find the 'members' column of 'groups' in the schema cache | insert=Could not find the 'members' column of 'groups' in the schema cache; group:4: upsert=Could not find the 'members' column of 'groups' in the schema cache | insert=Could not find the 'members' column of 'groups' in the schema cache
+  [submission] sample key="submission:2" value keys=comments,groupNumber,projectOutput,manuscriptLink,preDefenseFiles,manuscriptLinkUpdatedAt,manuscriptLinkUpdatedBy
+Done submissions: migrated 0/1 (1 errors)
+   Errors: submission:2: upsert=Could not find the 'comments' column of 'submissions' in the schema cache | insert=Could not find the 'comments' column of 'submissions' in the schema cache
+  [timeline] sample key="timeline:1" value keys=updatedAt,milestones,groupNumber
+Done timelines: migrated 0/2 (2 errors)
+   Errors: timeline:1: upsert=Could not find the table 'public.timelines' in the schema cache | insert=Could not find the table 'public.timelines' in the schema cache; timeline:2: upsert=Could not find the table 'public.timelines' in the schema cache | insert=Could not find the table 'public.timelines' in the schema cache
+  [dlprog] sample key="dlprog:3:2" value keys=status,groupId,groupName,deadlineId,confirmedAt,studentNote,submittedAt,submittedBy,rejectionNote
+Done deadline_progress: migrated 0/3 (3 errors)
+   Errors: dlprog:3:2: upsert=invalid input syntax for type integer: "3:2" | insert=invalid input syntax for type integer: "3:2"; dlprog:5:2: upsert=invalid input syntax for type integer: "5:2" | insert=invalid input syntax for type integer: "5:2"; dlprog:4:2: upsert=invalid input syntax for type integer: "4:2" | insert=invalid input syntax for type integer: "4:2"
+  [deadline] sample key="deadline:3" value keys=id,date,week,label,strict,createdAt,milestoneKey
+Done deadlines: migrated 15/15
+  [notification] sample key="notification:2" value keys=id,read,time,type,title,detail,userId
+Done notifications: migrated 6/6
+  [ai-plagiarism-report] sample key="ai-plagiarism-report:1" value keys=id,model,analysis,wordCount,analyzedAt,analyzedBy,groupNumber
+Done ai_plagiarism_reports: migrated 2/2
+  [manuscript-text] sample key="manuscript-text:2" value keys=text,fileName,storedAt,storedBy,pageCount,wordCount,groupNumber
+Done manuscript_texts: migrated 0/1 (1 errors)
+   Errors: manuscript-text:2: upsert=Could not find the 'id' column of 'manuscript_texts' in the schema cache | insert=Could not find the 'id' column of 'manuscript_texts' in the schema cache
+  [announcement] sample key="announcement:1" value keys=id,body,date,type,title,pinned,status,audience,priority,createdAt
+Done announcements: migrated 1/1
+Total migrated: 42 records

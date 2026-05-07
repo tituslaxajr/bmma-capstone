@@ -1,0 +1,115 @@
+/* ═══════════════════════════════════════════
+   PRINT STYLESHEET — CapstonePH
+   Switches dark cinema theme to light backgrounds
+   for readable printouts of grades and defense results.
+   ═══════════════════════════════════════════ */
+
+@media print {
+  /* ── Reset dark backgrounds to white ── */
+  body,
+  html,
+  #root,
+  [data-print-area] {
+    background: #fff !important;
+    color: #111 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Hide navigation chrome ── */
+  nav,
+  aside,
+  [data-sidebar],
+  [data-bottom-nav],
+  [data-mobile-drawer],
+  .sm\\:hidden.fixed, /* mobile quick-links bar */
+  button,
+  [role="dialog"],
+  [role="status"] {
+    display: none !important;
+  }
+
+  /* Re-show buttons inside data tables & grade cards (they may contain data) */
+  table button,
+  [data-print-keep] button {
+    display: inline-flex !important;
+  }
+
+  /* ── Main content area: full width, no padding constraints ── */
+  main,
+  [data-main-content] {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* ── Card / panel backgrounds → white with subtle border ── */
+  [class*="rounded-2xl"],
+  [class*="rounded-xl"] {
+    background: #fff !important;
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+  }
+
+  /* ── Text color overrides ── */
+  h1, h2, h3, h4, h5, h6,
+  p, span, div, td, th, label, li {
+    color: #111 !important;
+  }
+
+  /* Preserve accent colors for status badges and score indicators */
+  [class*="bg-[#4ADE80]"],
+  [class*="bg-[#4D8FFF]"],
+  [class*="bg-[#FBBF24]"],
+  [class*="bg-[#F87171]"],
+  [class*="bg-[#A78BFA]"] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Tables ── */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  th, td {
+    border: 1px solid #ccc !important;
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+  }
+
+  th {
+    background: #f5f5f5 !important;
+    font-weight: 700 !important;
+  }
+
+  /* ── Page break hints ── */
+  .page-break-before {
+    page-break-before: always;
+  }
+
+  .page-break-after {
+    page-break-after: always;
+  }
+
+  /* Avoid breaking inside cards/rows */
+  [class*="rounded-2xl"],
+  tr {
+    page-break-inside: avoid;
+  }
+
+  /* ── Grade/score visual bars — keep colors ── */
+  [class*="progress"],
+  [data-score-bar] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Footer / page info ── */
+  @page {
+    margin: 1cm 1.5cm;
+    size: A4;
+  }
+}

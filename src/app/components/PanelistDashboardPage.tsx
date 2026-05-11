@@ -10,6 +10,20 @@ import { PageShell } from "./PageShell";
 import { AvatarCircle } from "./AvatarCircle";
 import { PanelistCalendarMini } from "./PanelistCalendarMini";
 
+function matchesDefenseToGroup(defense: any, group: any) {
+  const groupNumber = group.number ?? group.id;
+  const defenseGroup = String(defense.group || "").toLowerCase();
+  const groupName = String(group.name || "").toLowerCase();
+  const groupLabel = `group ${groupNumber}`.toLowerCase();
+
+  return (
+    defense.groupId === group.id ||
+    defense.groupNumber === groupNumber ||
+    defenseGroup === groupName ||
+    defenseGroup === groupLabel
+  );
+}
+
 /* ═══ Main Export ═══ */
 export function PanelistDashboardPage({ onNavigate }: { onNavigate?: (idx: number) => void }) {
   const [loading, setLoading] = useState(true);
@@ -33,7 +47,7 @@ export function PanelistDashboardPage({ onNavigate }: { onNavigate?: (idx: numbe
       setGroups(myGroups);
 
       const myDefs = (defRes.defenses || []).filter((d: any) =>
-        myGroups.some((g: any) => g.id === d.groupId)
+        myGroups.some((g: any) => matchesDefenseToGroup(d, g))
       );
       setDefenses(myDefs);
     } catch (err) {
@@ -124,7 +138,7 @@ export function PanelistDashboardPage({ onNavigate }: { onNavigate?: (idx: numbe
             <div>
               {groups.map((g, idx) => {
                 const gn = g.number ?? g.id;
-                const defense = defenses.find((d: any) => d.groupId === g.id);
+                const defense = defenses.find((d: any) => matchesDefenseToGroup(d, g));
                 const mySlot = (g.panelists || []).findIndex((p: any) => p.name === profile?.name);
                 const isLead = mySlot === 0;
 
@@ -178,7 +192,7 @@ export function PanelistDashboardPage({ onNavigate }: { onNavigate?: (idx: numbe
               id: d.id,
               date: d.date,
               time: d.time || d.startTime,
-              group: groups.find(g => g.id === d.groupId)?.name || `Group ${d.groupNumber || "?"}`,
+              group: groups.find(g => matchesDefenseToGroup(d, g))?.name || d.group || `Group ${d.groupNumber || "?"}`,
               room: d.room || d.venue,
             }))}
             onEventClick={(ev) => onNavigate?.(2)}

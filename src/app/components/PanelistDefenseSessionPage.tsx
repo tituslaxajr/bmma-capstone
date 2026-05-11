@@ -98,6 +98,20 @@ const inputBase: React.CSSProperties = {
   fontFamily: FT.b, outline: "none", transition: "border-color 200ms",
 };
 
+function matchesDefenseToGroup(defense: any, group: any) {
+  const groupNumber = group.number ?? group.id;
+  const defenseGroup = String(defense.group || "").toLowerCase();
+  const groupName = String(group.name || "").toLowerCase();
+  const groupLabel = `group ${groupNumber}`.toLowerCase();
+
+  return (
+    defense.groupId === group.id ||
+    defense.groupNumber === groupNumber ||
+    defenseGroup === groupName ||
+    defenseGroup === groupLabel
+  );
+}
+
 
 const KF = `
 @keyframes dsvFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -828,9 +842,7 @@ export function PanelistDefenseSessionPage() {
   /* Defense info for selected group */
   const defenseForGroup = useMemo(() => {
     if (!selectedGroup) return null;
-    return defenses.find(d =>
-      d.group === `Group ${selectedGroup.number}` || d.group === selectedGroup.name
-    ) || null;
+    return defenses.find((d) => matchesDefenseToGroup(d, selectedGroup)) || null;
   }, [selectedGroup, defenses]);
 
   /* Active member scores */

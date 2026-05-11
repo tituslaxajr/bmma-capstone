@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, startTransition, type ReactNode } from "react";
 import { useNavigate } from "react-router";
+import { useLocation } from "react-router";
 import {
   FileText, Eye, Search, Loader2, Inbox, FolderOpen,
   CheckCircle2, Clock, AlertTriangle, MessageSquare, Package,
@@ -53,6 +54,9 @@ function computeOverallStatus(e: GroupEntry): OverallStatus {
 /* ═══ Main Export ═══ */
 export function PanelistManuscriptsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAdviserView = location.pathname.startsWith("/adviser");
+  const basePath = isAdviserView ? "/adviser" : "/panelist";
   const [entries, setEntries] = useState<GroupEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -61,11 +65,11 @@ export function PanelistManuscriptsPage() {
   const fetchData = useCallback(async () => {
     try {
       const ctx = await apiFetch<any>("/me/context");
-      const assignedGroups: any[] = ctx.assignedGroups || [];
-      if (assignedGroups.length === 0) { setEntries([]); setLoading(false); return; }
+      const scopedGroups: any[] = isAdviserView ? (ctx.advisedGroups || []) : (ctx.assignedGroups || []);
+      if (scopedGroups.length === 0) { setEntries([]); setLoading(false); return; }
 
       const results = await Promise.all(
-        assignedGroups.map(async (g: any) => {
+        scopedGroups.map(async (g: any) => {
           const gn = g.number ?? g.id;
           try {
             const { submission } = await apiFetch<{ submission: any }>(`/submissions/group/${gn}`);
@@ -88,7 +92,7 @@ export function PanelistManuscriptsPage() {
       setEntries(results);
     } catch (err) { console.error("Failed to fetch panelist manuscript data:", err); }
     finally { setLoading(false); }
-  }, []);
+  }, [isAdviserView]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -116,12 +120,18 @@ export function PanelistManuscriptsPage() {
       <PageShell className="max-w-[1280px] mx-auto space-y-5">
         <Fade delay={0}>
           <h1 style={{ fontFamily: FT.h, fontSize: "clamp(26px,4vw,32px)", fontWeight: 700, color: DT.textPri, letterSpacing: "-0.02em" }}>Pre-Defense Files & Output</h1>
-          <p className="mt-1" style={{ fontSize: 14, color: DT.textSec }}>Review pre-defense file submissions and project outputs from your assigned groups.</p>
+          <p className="mt-1" style={{ fontSize: 14, color: DT.textSec }}>
+            Review pre-defense file submissions and project outputs from your {isAdviserView ? "advised" : "assigned"} groups.
+          </p>
         </Fade>
         <div className="flex flex-col items-center justify-center py-20 rounded-2xl" style={{ background: cardBg, border: `1px solid ${DT.borderSub}` }}>
           <Inbox size={40} style={{ color: DT.textDis, marginBottom: 12 }} />
-          <h3 style={{ fontFamily: FT.h, fontSize: 18, fontWeight: 700, color: DT.textPri }}>No assigned groups</h3>
-          <p className="mt-1" style={{ fontSize: 13, color: DT.textTer }}>You have no groups assigned to you yet. Contact the coordinator.</p>
+          <h3 style={{ fontFamily: FT.h, fontSize: 18, fontWeight: 700, color: DT.textPri }}>
+            {isAdviserView ? "No advised groups" : "No assigned groups"}
+          </h3>
+          <p className="mt-1" style={{ fontSize: 13, color: DT.textTer }}>
+            {isAdviserView ? "You have no advised groups yet. Contact the coordinator." : "You have no groups assigned to you yet. Contact the coordinator."}
+          </p>
         </div>
       </PageShell>
     );
@@ -132,7 +142,9 @@ export function PanelistManuscriptsPage() {
       {/* Header */}
       <Fade delay={0}>
         <h1 style={{ fontFamily: FT.h, fontSize: "clamp(26px,4vw,32px)", fontWeight: 700, color: DT.textPri, letterSpacing: "-0.02em" }}>Pre-Defense Files & Output</h1>
-        <p className="mt-1" style={{ fontSize: 14, color: DT.textSec }}>Review pre-defense file submissions and project outputs from your assigned groups.</p>
+        <p className="mt-1" style={{ fontSize: 14, color: DT.textSec }}>
+          Review pre-defense file submissions and project outputs from your {isAdviserView ? "advised" : "assigned"} groups.
+        </p>
       </Fade>
 
       {/* Summary Cards */}
@@ -185,7 +197,7 @@ export function PanelistManuscriptsPage() {
             const hasOutput = !!e.projectOutput;
             return (
               <button key={e.groupNumber}
-                onClick={() => startTransition(() => navigate(`/panelist/pre-defense/${e.groupNumber}`))}
+                onClick={() => startTransition(() => navigate(`${basePath}/pre-defense/${e.groupNumber}`))}
                 className="w-full text-left rounded-[20px] p-5 transition cursor-pointer group"
                 style={{
                   background: cardBg,

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { useLocation } from "react-router";
 import {
   CheckCircle2, Clock, AlertTriangle, Loader2, Inbox, Send,
   ChevronDown, ChevronUp, FileText, ExternalLink, MessageSquare,
@@ -230,6 +231,8 @@ function GroupReviewCard({ group, grade, onApprove, onRequestChanges, isProcessi
    MAIN EXPORT
    ═══════════════════════════════════════════ */
 export function PanelistPostDefenseReviewPage() {
+  const location = useLocation();
+  const isAdviserView = location.pathname.startsWith("/adviser");
   const [loading, setLoading] = useState(true);
   const [groups, setGroups] = useState<any[]>([]);
   const [grades, setGrades] = useState<any[]>([]);
@@ -240,19 +243,52 @@ export function PanelistPostDefenseReviewPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await apiFetch<any>("/grades/my");
-      const assignedGroups: any[] = res.assignedGroups || [];
-      const myGrades: any[] = res.grades || [];
+      if (isAdviserView) {
+        const ctx = await apiFetch<any>("/me/context");
+        const advisedGroups: any[] = ctx.advisedGroups || [];
+        const groupGrades = await Promise.all(
+          advisedGroups.map(async (g: any) => {
+            const gn = g.number ?? g.id;
+            const res = await apiFetch<any>(`/grades/group/${gn}`).catch(() => ({ grades: [] }));
+            const rawGrades: any[] = res.grades || [];
+            if (rawGrades.length === 0) return null;
 
-      // Only show groups that have been graded (defense completed)
-      const gradedGroupIds = new Set(myGrades.map((g: any) => g.groupId));
-      const postDefenseGroups = assignedGroups.filter(g => gradedGroupIds.has(g.id));
+            const verdictCounts: Record<string, number> = {};
+            rawGrades.forEach((grade: any) => {
+              verdictCounts[grade.verdict] = (verdictCounts[grade.verdict] || 0) + 1;
+            });
+            const majorityVerdict = Object.entries(verdictCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "pending";
+            const weightedTotal = rawGrades.reduce((sum: number, grade: any) => sum + (grade.weightedTotal || 0), 0) / rawGrades.length;
+            const mergedRevisions = rawGrades.flatMap((grade: any) => grade.revisions || []);
 
-      setGroups(postDefenseGroups);
-      setGrades(myGrades);
+            return {
+              groupId: g.id,
+              weightedTotal,
+              verdict: majorityVerdict,
+              revisions: mergedRevisions,
+              feedback: rawGrades.map((grade: any) => grade.feedback).filter(Boolean).join("\n\n"),
+            };
+          })
+        );
+
+        const usableGrades = groupGrades.filter(Boolean);
+        const gradedGroupIds = new Set(usableGrades.map((g: any) => g.groupId));
+        setGroups(advisedGroups.filter((g: any) => gradedGroupIds.has(g.id)));
+        setGrades(usableGrades as any[]);
+      } else {
+        const res = await apiFetch<any>("/grades/my");
+        const assignedGroups: any[] = res.assignedGroups || [];
+        const myGrades: any[] = res.grades || [];
+
+        const gradedGroupIds = new Set(myGrades.map((g: any) => g.groupId));
+        const postDefenseGroups = assignedGroups.filter(g => gradedGroupIds.has(g.id));
+
+        setGroups(postDefenseGroups);
+        setGrades(myGrades);
+      }
     } catch (err) { console.error("Failed to fetch post-defense data:", err); }
     finally { setLoading(false); }
-  }, []);
+  }, [isAdviserView]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -319,7 +355,7 @@ export function PanelistPostDefenseReviewPage() {
           Post-Defense Review
         </h1>
         <p className="mt-1" style={{ fontSize: 14, color: DT.textSec }}>
-          Review submitted revisions from your assigned groups and approve or request changes.
+          Review submitted revisions from your {isAdviserView ? "advised" : "assigned"} groups and approve or request changes.
         </p>
       </div>
 
@@ -370,7 +406,9 @@ export function PanelistPostDefenseReviewPage() {
           </h3>
           <p className="mt-1" style={{ fontSize: 13, color: DT.textTer }}>
             {groups.length === 0
-              ? "Groups will appear here after you submit defense grades."
+              ? isAdviserView
+                ? "Groups will appear here once your advised groups have completed panel defense grading."
+                : "Groups will appear here after you submit defense grades."
               : "Try a different filter to see more groups."}
           </p>
         </div>

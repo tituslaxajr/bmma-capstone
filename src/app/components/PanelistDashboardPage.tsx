@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLocation } from "react-router";
 import {
   Users, Calendar, FileText, ClipboardList, ChevronRight,
   Loader2, Inbox, Clock, CheckCircle2, AlertTriangle, Star,
@@ -26,28 +27,34 @@ function matchesDefenseToGroup(defense: any, group: any) {
 
 /* ═══ Main Export ═══ */
 export function PanelistDashboardPage({ onNavigate }: { onNavigate?: (idx: number) => void }) {
+  const location = useLocation();
+  const isAdviserView = location.pathname.startsWith("/adviser");
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [groups, setGroups] = useState<any[]>([]);
   const [defenses, setDefenses] = useState<any[]>([]);
+  const [alreadyGradedCount, setAlreadyGradedCount] = useState(0);
 
   const fetchData = useCallback(async () => {
     try {
-      const [ctx, groupsRes, defRes] = await Promise.all([
+      const requests = [
         apiFetch<any>("/me/context"),
-        apiFetch<{ groups: any[] }>("/groups"),
         apiFetch<{ defenses: any[] }>("/defenses"),
+      ] as const;
+      const [ctx, defRes, gradeRes] = await Promise.all([
+        ...requests,
+        isAdviserView
+          ? apiFetch<{ grades: any[] }>("/adviser-grades").catch(() => ({ grades: [] }))
+          : apiFetch<any>("/grades/my").catch(() => ({ grades: [] })),
       ]);
       setProfile(ctx.profile);
 
-      const myName = ctx.profile?.name || "";
-      const myGroups = (groupsRes.groups || []).filter((g: any) =>
-        (g.panelists || []).some((p: any) => p.name === myName)
-      );
-      setGroups(myGroups);
+      const facultyGroups = isAdviserView ? (ctx.advisedGroups || []) : (ctx.assignedGroups || []);
+      setGroups(facultyGroups);
+      setAlreadyGradedCount((gradeRes?.grades || []).length);
 
       const myDefs = (defRes.defenses || []).filter((d: any) =>
-        myGroups.some((g: any) => matchesDefenseToGroup(d, g))
+        facultyGroups.some((g: any) => matchesDefenseToGroup(d, g))
       );
       setDefenses(myDefs);
     } catch (err) {
@@ -55,7 +62,7 @@ export function PanelistDashboardPage({ onNavigate }: { onNavigate?: (idx: numbe
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdviserView]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -68,23 +75,25 @@ export function PanelistDashboardPage({ onNavigate }: { onNavigate?: (idx: numbe
     );
   }
 
-  const firstName = (profile?.name || "Panelist").split(" ")[0];
+  const firstName = (profile?.name || (isAdviserView ? "Adviser" : "Panelist")).split(" ")[0];
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   const scheduledCount = defenses.filter(d => d.status === "scheduled" || d.status === "Scheduled").length;
   const completedCount = defenses.filter(d => d.status === "completed" || d.status === "Completed").length;
-  const pendingGrades = defenses.filter(d => {
-    const isComplete = d.status === "completed" || d.status === "Completed";
-    const hasGraded = d.grades?.some((g: any) => g.panelistName === profile?.name);
-    return isComplete && !hasGraded;
-  }).length;
+  const pendingGrades = isAdviserView
+    ? Math.max(groups.length - alreadyGradedCount, 0)
+    : defenses.filter(d => {
+        const isComplete = d.status === "completed" || d.status === "Completed";
+        const hasGraded = d.grades?.some((g: any) => g.panelistName === profile?.name);
+        return isComplete && !hasGraded;
+      }).length;
 
   const stats = [
-    { label: "Assigned Groups", value: groups.length, icon: <Users size={18} />, accent: DT.purple, bg: withAlpha(DT.purple, 0.08) },
+    { label: isAdviserView ? "Advised Groups" : "Assigned Groups", value: groups.length, icon: <Users size={18} />, accent: DT.purple, bg: withAlpha(DT.purple, 0.08) },
     { label: "Upcoming Defenses", value: scheduledCount, icon: <Calendar size={18} />, accent: DT.blue, bg: DT.blueDim },
-    { label: "Completed", value: completedCount, icon: <CheckCircle2 size={18} />, accent: DT.success, bg: DT.successDim },
-    { label: "Pending Grades", value: pendingGrades, icon: <ClipboardList size={18} />, accent: pendingGrades > 0 ? DT.warning : DT.textTer, bg: pendingGrades > 0 ? DT.warningDim : "rgba(255,255,255,0.04)" },
+    { label: isAdviserView ? "Graded Groups" : "Completed", value: isAdviserView ? alreadyGradedCount : completedCount, icon: <CheckCircle2 size={18} />, accent: DT.success, bg: DT.successDim },
+    { label: isAdviserView ? "Pending Adviser Grades" : "Pending Grades", value: pendingGrades, icon: <ClipboardList size={18} />, accent: pendingGrades > 0 ? DT.warning : DT.textTer, bg: pendingGrades > 0 ? DT.warningDim : "rgba(255,255,255,0.04)" },
   ];
 
   return (
@@ -96,7 +105,7 @@ export function PanelistDashboardPage({ onNavigate }: { onNavigate?: (idx: numbe
             {greeting}, <span style={{ color: DT.purple }}>{firstName}</span>
           </h1>
           <p className="mt-1" style={{ fontSize: 14, color: DT.textSec }}>
-            Here's your defense panel overview
+            {isAdviserView ? "Here's your adviser portal overview" : "Here's your defense panel overview"}
           </p>
         </div>
       </Fade>
@@ -122,7 +131,7 @@ export function PanelistDashboardPage({ onNavigate }: { onNavigate?: (idx: numbe
       <Fade delay={120}>
         <div className="rounded-xl overflow-hidden" style={{ background: cardBg, border: `1px solid ${DT.borderSub}`, boxShadow: DT.shadowSm }}>
           <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${DT.borderHair}` }}>
-            <h2 style={{ fontFamily: FT.h, fontSize: 16, fontWeight: 700, color: DT.textPri }}>Your Assigned Groups</h2>
+            <h2 style={{ fontFamily: FT.h, fontSize: 16, fontWeight: 700, color: DT.textPri }}>{isAdviserView ? "Your Advised Groups" : "Your Assigned Groups"}</h2>
             <button onClick={() => onNavigate?.(1)} className="flex items-center gap-1 cursor-pointer transition hover:opacity-80" style={{ fontSize: 12, fontWeight: 600, color: DT.purple }}>
               View Files <ChevronRight size={14} />
             </button>
@@ -131,8 +140,10 @@ export function PanelistDashboardPage({ onNavigate }: { onNavigate?: (idx: numbe
           {groups.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16">
               <Inbox size={36} style={{ color: DT.textDis, marginBottom: 12 }} />
-              <p style={{ fontSize: 14, fontWeight: 600, color: DT.textPri }}>No Groups Assigned</p>
-              <p className="mt-1" style={{ fontSize: 12, color: DT.textTer }}>Contact the coordinator to be assigned to defense panels.</p>
+              <p style={{ fontSize: 14, fontWeight: 600, color: DT.textPri }}>{isAdviserView ? "No Advised Groups" : "No Groups Assigned"}</p>
+              <p className="mt-1" style={{ fontSize: 12, color: DT.textTer }}>
+                {isAdviserView ? "Contact the coordinator if your advised groups are missing." : "Contact the coordinator to be assigned to defense panels."}
+              </p>
             </div>
           ) : (
             <div>
@@ -152,7 +163,7 @@ export function PanelistDashboardPage({ onNavigate }: { onNavigate?: (idx: numbe
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="truncate" style={{ fontSize: 14, fontWeight: 600, color: DT.textPri }}>{g.name || `Group ${gn}`}</span>
-                        {isLead && (
+                        {!isAdviserView && isLead && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full shrink-0"
                             style={{ fontSize: 9, fontWeight: 700, background: DT.yellowDim, color: DT.yellow, border: `1px solid ${withAlpha(DT.yellow, 0.2)}` }}>
                             <Star size={8} /> LEAD
@@ -203,11 +214,17 @@ export function PanelistDashboardPage({ onNavigate }: { onNavigate?: (idx: numbe
       {/* Quick Actions */}
       <Fade delay={180}>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {[
-            { label: "Review Files", desc: "View pre-defense submissions", icon: <FileText size={18} />, accent: DT.blue, idx: 1 },
-            { label: "Grade Groups", desc: "Submit defense grades", icon: <ClipboardList size={18} />, accent: DT.purple, idx: 3 },
-            { label: "Defense Sessions", desc: "Start or join a session", icon: <Calendar size={18} />, accent: DT.success, idx: 2 },
-          ].map(a => (
+          {(isAdviserView
+            ? [
+                { label: "Review Files", desc: "View pre-defense submissions", icon: <FileText size={18} />, accent: DT.blue, idx: 1 },
+                { label: "Review Revisions", desc: "Approve or return revision work", icon: <ClipboardList size={18} />, accent: DT.purple, idx: 3 },
+                { label: "Adviser Grading", desc: "Submit adviser grade component", icon: <Calendar size={18} />, accent: DT.success, idx: 4 },
+              ]
+            : [
+                { label: "Review Files", desc: "View pre-defense submissions", icon: <FileText size={18} />, accent: DT.blue, idx: 1 },
+                { label: "Grade Groups", desc: "Submit defense grades", icon: <ClipboardList size={18} />, accent: DT.purple, idx: 3 },
+                { label: "Defense Sessions", desc: "Start or join a session", icon: <Calendar size={18} />, accent: DT.success, idx: 2 },
+              ]).map(a => (
             <button key={a.label} onClick={() => onNavigate?.(a.idx)}
               className="rounded-xl p-4 text-left transition cursor-pointer hover:bg-white/[0.02] group"
               style={{ background: cardBg, border: `1px solid ${DT.borderSub}`, boxShadow: DT.shadowSm }}>
@@ -233,16 +250,18 @@ export function PanelistDashboardPage({ onNavigate }: { onNavigate?: (idx: numbe
             <AlertTriangle size={18} style={{ color: DT.warning }} className="shrink-0" />
             <div className="flex-1">
               <p style={{ fontSize: 13, fontWeight: 600, color: DT.warning }}>
-                You have {pendingGrades} defense{pendingGrades > 1 ? "s" : ""} awaiting grades
+                {isAdviserView
+                  ? `You have ${pendingGrades} group${pendingGrades > 1 ? "s" : ""} awaiting adviser grades`
+                  : `You have ${pendingGrades} defense${pendingGrades > 1 ? "s" : ""} awaiting grades`}
               </p>
               <p style={{ fontSize: 11, color: withAlpha(DT.warning, 0.7) }}>
-                Submit your evaluations to help finalize group results.
+                {isAdviserView ? "Submit your adviser evaluations to keep final grade aggregation moving." : "Submit your evaluations to help finalize group results."}
               </p>
             </div>
-            <button onClick={() => onNavigate?.(3)}
+            <button onClick={() => onNavigate?.(isAdviserView ? 4 : 3)}
               className="px-3 py-1.5 rounded-lg transition cursor-pointer hover:opacity-90 shrink-0"
               style={{ background: DT.warning, color: DT.base, fontSize: 12, fontWeight: 700 }}>
-              Grade Now
+              {isAdviserView ? "Grade Now" : "Grade Now"}
             </button>
           </div>
         </Fade>

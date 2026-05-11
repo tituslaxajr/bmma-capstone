@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useLocation } from "react-router";
 import {
   ChevronLeft, CheckCircle2, Loader2, Inbox, Send, Users, User,
   Star, Plus, Trash2, AlertTriangle, Monitor, Clock, MapPin, Video,
@@ -730,6 +731,8 @@ function GroupSelector({ groups, onSelect, onShowGuidelines }: { groups: any[]; 
    MAIN EXPORT — Defense Session Page
    ═══════════════════════════════════════════ */
 export function PanelistDefenseSessionPage() {
+  const location = useLocation();
+  const isAdviserView = location.pathname.startsWith("/adviser");
   const [loading, setLoading] = useState(true);
   const [assignedGroups, setAssignedGroups] = useState<any[]>([]);
   const [alreadyGraded, setAlreadyGraded] = useState<Set<number>>(new Set());
@@ -854,6 +857,12 @@ export function PanelistDefenseSessionPage() {
   /* ─── Fetch ─── */
   const fetchData = useCallback(async () => {
     try {
+      if (isAdviserView) {
+        setAssignedGroups([]);
+        setAlreadyGraded(new Set());
+        setDefenses([]);
+        return;
+      }
       const [gradeRes, defenseRes] = await Promise.all([
         apiFetch<any>("/grades/my"),
         apiFetch<any>("/defenses"),
@@ -864,7 +873,7 @@ export function PanelistDefenseSessionPage() {
       setDefenses(defenseRes.defenses || []);
     } catch (err) { console.error("Failed to fetch defense session data:", err); }
     finally { setLoading(false); }
-  }, []);
+  }, [isAdviserView]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -1249,6 +1258,38 @@ export function PanelistDefenseSessionPage() {
       <div className="flex items-center justify-center py-20 gap-3" style={{ fontFamily: FT.b }}>
         <Loader2 size={24} className="animate-spin" style={{ color: DT.blue }} />
         <span style={{ color: DT.textSec, fontSize: 14 }}>Loading defense data...</span>
+      </div>
+    );
+  }
+
+  if (isAdviserView) {
+    return (
+      <div className="max-w-[880px] mx-auto space-y-5" style={{ fontFamily: FT.b, animation: "dsvFade 400ms ease-out" }}>
+        <style>{KF}</style>
+        <div className="rounded-2xl p-8" style={cardStyle}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: withAlpha(DT.success, 0.08), color: DT.success }}>
+              <BookOpen size={22} />
+            </div>
+            <div>
+              <h1 style={{ fontFamily: FT.h, fontSize: 28, fontWeight: 700, color: DT.textPri }}>Adviser Portal Guidance</h1>
+              <p style={{ fontSize: 14, color: DT.textSec }}>Defense-session scoring is panelist-only.</p>
+            </div>
+          </div>
+          <p style={{ fontSize: 14, color: DT.textTer, lineHeight: 1.7 }}>
+            Advisers should use the Adviser Grading page for the 30% adviser component and the Post-Defense Review page to approve or return revision submissions from advised groups.
+          </p>
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${DT.borderHair}` }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: DT.textPri }}>Use Adviser Grading</div>
+              <div style={{ fontSize: 12, color: DT.textTer, marginTop: 4 }}>Submit attendance, participation, and involvement scores for advised students.</div>
+            </div>
+            <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${DT.borderHair}` }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: DT.textPri }}>Use Post-Defense Review</div>
+              <div style={{ fontSize: 12, color: DT.textTer, marginTop: 4 }}>Check revision submissions and approve them or request additional changes.</div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

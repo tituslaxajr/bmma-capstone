@@ -1,5 +1,6 @@
 import { startTransition, type ReactNode, useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
+import { useLocation } from "react-router";
 import {
   FileText, Eye, CheckCircle2, Clock, AlertTriangle,
   ExternalLink, MessageSquare, Loader2, Inbox, Send,
@@ -71,6 +72,9 @@ function computeOverallStatus(sub: any): OverallStatus {
 export function PanelistManuscriptDetailPage() {
   const { groupNumber } = useParams<{ groupNumber: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAdviserView = location.pathname.startsWith("/adviser");
+  const basePath = isAdviserView ? "/adviser" : "/panelist";
   const [group, setGroup] = useState<any>(null);
   const [sub, setSub] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -83,8 +87,8 @@ export function PanelistManuscriptDetailPage() {
     try {
       // Get assigned groups from /me/context
       const ctx = await apiFetch<any>("/me/context");
-      const assignedGroups: any[] = ctx.assignedGroups || [];
-      const match = assignedGroups.find((g: any) => String(g.number ?? g.id) === groupNumber);
+      const scopedGroups: any[] = isAdviserView ? (ctx.advisedGroups || []) : (ctx.assignedGroups || []);
+      const match = scopedGroups.find((g: any) => String(g.number ?? g.id) === groupNumber);
 
       if (!match) {
         toast.error("Group not found or not assigned to you");
@@ -104,7 +108,7 @@ export function PanelistManuscriptDetailPage() {
       }
     } catch (err) { console.error("Failed to fetch group detail:", err); }
     finally { setLoading(false); }
-  }, [groupNumber]);
+  }, [groupNumber, isAdviserView]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -121,7 +125,7 @@ export function PanelistManuscriptDetailPage() {
     return (
       <div className="text-center py-32" style={{ fontFamily: FT.b }}>
         <p style={{ fontSize: 16, color: DT.textTer }}>Group not found or not assigned to you.</p>
-        <button onClick={() => startTransition(() => navigate("/panelist/pre-defense"))} className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition hover:opacity-90"
+        <button onClick={() => startTransition(() => navigate(`${basePath}/pre-defense`))} className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition hover:opacity-90"
           style={{ background: DT.blue, color: "#fff", fontSize: 13, fontWeight: 600 }}>
           <ArrowLeft size={14} /> Back to Pre-Defense Files
         </button>
@@ -160,7 +164,7 @@ export function PanelistManuscriptDetailPage() {
     <div className="space-y-5" style={{ fontFamily: FT.b }}>
       {/* Back + Header */}
       <div>
-        <button onClick={() => startTransition(() => navigate("/panelist/pre-defense"))}
+        <button onClick={() => startTransition(() => navigate(`${basePath}/pre-defense`))}
           className="inline-flex items-center gap-1.5 mb-4 cursor-pointer transition hover:opacity-80"
           style={{ fontSize: 13, color: DT.textTer, fontWeight: 500 }}>
           <ArrowLeft size={15} /> Back to Pre-Defense Files

@@ -34,10 +34,7 @@ interface PageDef { icon: React.ReactNode; name: string; context: string; path: 
 
 const STUDENT_PAGES: PageDef[] = [
   { icon: <LayoutDashboard size={16} />, name: "Dashboard", context: "Overview", path: "/student" },
-  { icon: <ClipboardList size={16} />, name: "My Checklist", context: "Tasks & requirements", path: "/student/checklist" },
-  { icon: <Clock size={16} />, name: "Timeline", context: "Project timeline", path: "/student/timeline" },
   { icon: <FileText size={16} />, name: "Submissions", context: "Manuscript uploads", path: "/student/submissions" },
-  { icon: <NotebookPen size={16} />, name: "Progress Reports", context: "Weekly reports", path: "/student/progress-reports" },
   { icon: <Calendar size={16} />, name: "Defense Info", context: "Schedule & details", path: "/student/defense-info" },
   { icon: <BarChart3 size={16} />, name: "My Results", context: "Grades & feedback", path: "/student/results" },
   { icon: <Archive size={16} />, name: "Archive", context: "Past submissions", path: "/student/archive" },
@@ -51,6 +48,7 @@ const PANELIST_PAGES: PageDef[] = [
   { icon: <FileText size={16} />, name: "Pre-Defense Files", context: "Manuscripts to review", path: "/panelist/pre-defense" },
   { icon: <ShieldCheck size={16} />, name: "Defense Session", context: "Live grading", path: "/panelist/defense-session" },
   { icon: <CheckSquare size={16} />, name: "Post-Defense Review", context: "Revision reviews", path: "/panelist/post-defense" },
+  { icon: <BarChart3 size={16} />, name: "Grade Aggregator", context: "Final grades and release status", path: "/panelist/grade-aggregator" },
   { icon: <Settings size={16} />, name: "Settings", context: "Profile & preferences", path: "/panelist/settings" },
 ];
 
@@ -60,10 +58,8 @@ const COORDINATOR_PAGES: PageDef[] = [
   { icon: <FolderKanban size={16} />, name: "Groups & Teams", context: "Manage groups", path: "/coordinator/groups" },
   { icon: <Link2 size={16} />, name: "Assignments", context: "Panelist assignments", path: "/coordinator/assignments" },
   { icon: <FileText size={16} />, name: "Manuscript Review", context: "Review submissions", path: "/coordinator/manuscripts" },
-  { icon: <NotebookPen size={16} />, name: "Progress Reports", context: "Student reports", path: "/coordinator/progress-reports" },
   { icon: <ShieldCheck size={16} />, name: "Defense Overview", context: "Schedule & manage", path: "/coordinator/defense" },
   { icon: <Award size={16} />, name: "Grading", context: "View & manage grades", path: "/coordinator/grading" },
-  { icon: <Trophy size={16} />, name: "Deadline Review & Milestones", context: "Confirm deadlines, track milestones", path: "/coordinator/milestone-review" },
   { icon: <Archive size={16} />, name: "Archive & Records", context: "Past records", path: "/coordinator/archive" },
   { icon: <Database size={16} />, name: "Data Integrity", context: "System data integrity dashboard", path: "/coordinator/data-integrity" },
   { icon: <Settings size={16} />, name: "Settings", context: "System settings", path: "/coordinator/settings" },

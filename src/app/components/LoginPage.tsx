@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { THREE, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass } from "../lib/three-exports";
-import loginBgWide from "../../assets/login-bg-wide.png";
+import { loadThreeModules } from "../lib/three-loader";
+import { useHeavyEffectsEnabled } from "../lib/effects";
+import loginBgWide from "../../assets/login-bg-wide.jpg";
+import loginBgMobile from "../../assets/login-bg-mobile.jpg";
 import { GraduationCap, ShieldCheck, Eye, EyeOff, Loader2, Settings, ArrowRight, Lock, ArrowLeft, BookOpen } from "lucide-react";
-import { supabase, apiFetch } from "../lib/supabase";
+import { supabase, apiFetch, warmApiConnection } from "../lib/supabase";
 import { DT, FT, withAlpha } from "./cinematic-tokens";
 
 type Role = "student" | "panelist" | "adviser" | "coordinator";
@@ -20,6 +22,20 @@ const DEMO_NAMES: Record<Role, string> = {
   adviser: "Ms. Lara Cruz",
   coordinator: "Dr. Nina Villanueva",
 };
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() => typeof window !== "undefined" && window.matchMedia(query).matches);
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const update = () => setMatches(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [query]);
+
+  return matches;
+}
 
 /* ── CSS keyframes ── */
 const KEYFRAMES = `
@@ -106,22 +122,30 @@ const ChromaticAberrationShader = {
    LOGIN HERO SCENE — mirrors landing page VFX
    Glowing particles + Bloom + Vignette + Chromatic
    ══════════════════════════════════════════ */
-function LoginHeroScene() {
+function LoginHeroScene({ enabled }: { enabled: boolean }) {
   const mountRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    if (!enabled) return;
     const container = mountRef.current;
     if (!container) return;
-    const W = container.clientWidth, H = container.clientHeight;
-    if (W === 0 || H === 0) return;
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(W, H);
-    container.appendChild(renderer.domElement);
+    void (async () => {
+      const { THREE, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass } = await loadThreeModules();
+      if (cancelled) return;
+      const W = container.clientWidth;
+      const H = container.clientHeight;
+      if (W === 0 || H === 0) return;
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(72, W / H, 0.1, 2000);
-    camera.position.z = 400;
+      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(W, H);
+      container.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(72, W / H, 0.1, 2000);
+      camera.position.z = 400;
 
     /* VFX color palette */
     const VFX_COLORS = [
@@ -275,20 +299,28 @@ function LoginHeroScene() {
     };
     animate();
 
-    const onVis = () => { if(document.hidden) cancelAnimationFrame(raf); else animate(); };
-    document.addEventListener("visibilitychange", onVis);
+      const onVis = () => { if (document.hidden) cancelAnimationFrame(raf); else animate(); };
+      document.addEventListener("visibilitychange", onVis);
+
+      cleanup = () => {
+        cancelAnimationFrame(raf);
+        window.removeEventListener("mousemove", onMM);
+        window.removeEventListener("mouseleave", onML);
+        window.removeEventListener("resize", onResize);
+        document.removeEventListener("visibilitychange", onVis);
+        composer.dispose();
+        renderer.dispose();
+        if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+      };
+    })();
 
     return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("mousemove", onMM);
-      window.removeEventListener("mouseleave", onML);
-      window.removeEventListener("resize", onResize);
-      document.removeEventListener("visibilitychange", onVis);
-      composer.dispose(); renderer.dispose();
-      if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+      cancelled = true;
+      cleanup?.();
     };
-  }, []);
+  }, [enabled]);
 
+  if (!enabled) return null;
   return <div ref={mountRef} className="absolute inset-0 pointer-events-none" style={{ zIndex: 2, filter: "blur(28px) saturate(1.45)", transform: "scale(1.14)", mixBlendMode: "screen", opacity: 0.72 }} />;
 }
 
@@ -500,10 +532,42 @@ export function LoginPage({ onLogin, onBackToLanding }: { onLogin: (user: { emai
   const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const isTablet = useMediaQuery("(min-width: 768px)");
+  const hasDesktopWidth = useMediaQuery("(min-width: 1024px)");
+  const heavyEffectsEnabled = useHeavyEffectsEnabled();
+  const [motionReady, setMotionReady] = useState(false);
+  const richMotionEnabled = motionReady && heavyEffectsEnabled && hasDesktopWidth;
   const localDemoEnabled = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
   useEffect(() => { const t = setTimeout(() => setMounted(true), 80); return () => clearTimeout(t); }, []);
-  useEffect(() => { apiFetch("/auth/bootstrap", { method: "POST" }).catch(() => {}); }, []);
+  useEffect(() => {
+    if (!hasDesktopWidth || !heavyEffectsEnabled) {
+      setMotionReady(false);
+      return;
+    }
+
+    const activate = () => setMotionReady(true);
+    const idleId = "requestIdleCallback" in window
+      ? window.requestIdleCallback(activate, { timeout: 1400 })
+      : window.setTimeout(activate, 1000);
+
+    return () => {
+      if ("cancelIdleCallback" in window && typeof idleId === "number") {
+        window.cancelIdleCallback(idleId);
+      } else {
+        window.clearTimeout(idleId as number);
+      }
+    };
+  }, [hasDesktopWidth, heavyEffectsEnabled]);
+  useEffect(() => {
+    const kickoff = () => {
+      warmApiConnection();
+      apiFetch("/auth/bootstrap", { method: "POST" }).catch(() => {});
+    };
+
+    const timer = window.setTimeout(kickoff, 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const loginAsDemoUser = (selectedRole = role) => {
     const demoEmail = email.trim() || `${selectedRole}@capstoneph.local`;
@@ -556,20 +620,26 @@ export function LoginPage({ onLogin, onBackToLanding }: { onLogin: (user: { emai
     <div className="relative min-h-screen lg:h-screen flex flex-col lg:flex-row overflow-x-hidden overflow-y-auto lg:overflow-hidden" style={{ fontFamily: FT.b, background: DT.base }}>
       <style>{KEYFRAMES}</style>
 
-      <img
-        src={loginBgWide}
-        alt=""
-        aria-hidden="true"
-        className="hidden lg:block absolute inset-0 w-full h-full object-cover z-[0]"
-        style={{ objectPosition: "center center" }}
-      />
-      <div className="hidden lg:block absolute inset-0 pointer-events-none z-[1]" style={{
-        background: "linear-gradient(90deg, rgba(7,9,15,0.76) 0%, rgba(7,9,15,0.34) 43%, rgba(7,9,15,0.62) 100%), radial-gradient(ellipse 72% 78% at 38% 42%, transparent 16%, rgba(7,9,15,0.36) 72%, rgba(7,9,15,0.82) 100%)",
-      }} />
-      <div className="hidden lg:block absolute inset-0 pointer-events-none z-[2]">
-        <LoginHeroScene />
-      </div>
-      <div className="hidden lg:block absolute inset-0 pointer-events-none z-[3] opacity-[0.025]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")", backgroundSize: "200px 200px" }} />
+      {hasDesktopWidth ? (
+        <>
+          <img
+            src={loginBgWide}
+            alt=""
+            aria-hidden="true"
+            className="hidden lg:block absolute inset-0 w-full h-full object-cover z-[0]"
+            loading="eager"
+            decoding="async"
+            style={{ objectPosition: "center center" }}
+          />
+          <div className="hidden lg:block absolute inset-0 pointer-events-none z-[1]" style={{
+            background: "linear-gradient(90deg, rgba(7,9,15,0.76) 0%, rgba(7,9,15,0.34) 43%, rgba(7,9,15,0.62) 100%), radial-gradient(ellipse 72% 78% at 38% 42%, transparent 16%, rgba(7,9,15,0.36) 72%, rgba(7,9,15,0.82) 100%)",
+          }} />
+          <div className="hidden lg:block absolute inset-0 pointer-events-none z-[2]">
+            <LoginHeroScene enabled={richMotionEnabled} />
+          </div>
+          <div className="hidden lg:block absolute inset-0 pointer-events-none z-[3] opacity-[0.025]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")", backgroundSize: "200px 200px" }} />
+        </>
+      ) : null}
 
       {/* ══════════════════════════════════════════
          LEFT PANEL — Cinematic Hero (desktop lg+)
@@ -670,15 +740,18 @@ export function LoginPage({ onLogin, onBackToLanding }: { onLogin: (user: { emai
       {/* ══════════════════════════════════════════
          TABLET HERO (md only — compact banner)
          ══════════════════════════════════════════ */}
+      {isTablet && !hasDesktopWidth ? (
       <div className="hidden md:flex lg:hidden relative overflow-hidden" style={{ height: "180px", background: DT.base }}>
         <img
-          src={loginBgWide}
+          src={loginBgMobile}
           alt=""
           aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover z-[0]"
+          loading="eager"
+          decoding="async"
           style={{ objectPosition: "center 36%" }}
         />
-        <LoginHeroScene />
+        <LoginHeroScene enabled={false} />
         <div className="absolute inset-0 pointer-events-none z-[1]" style={{ background: "linear-gradient(90deg, rgba(7,9,15,0.62), rgba(7,9,15,0.24)), radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(7,9,15,0.70) 100%)" }} />
         <div className="absolute bottom-0 left-0 right-0 z-[3]" style={{ height: 80, background: "linear-gradient(to top, #07090F, transparent)" }} />
         <div className="absolute inset-0 z-[4] flex items-center justify-center px-10">
@@ -693,6 +766,7 @@ export function LoginPage({ onLogin, onBackToLanding }: { onLogin: (user: { emai
           </div>
         </div>
       </div>
+      ) : null}
 
       {/* ══════════════════════════════════════════
          RIGHT PANEL — Login Form

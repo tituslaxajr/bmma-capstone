@@ -441,7 +441,7 @@ function QuickLinks({ onNavigate }: { onNavigate: (idx: number) => void }) {
     <>
       {/* Desktop — static grid (hidden on mobile) */}
       <Fade delay={320} className="hidden sm:block">
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {links.map(l => (
             <button key={l.label} onClick={() => onNavigate(l.idx)}
               className="flex flex-col items-center gap-2 p-4 rounded-2xl transition-all cursor-pointer group hover:-translate-y-[1px]"
@@ -769,7 +769,7 @@ function DashboardSkeleton() {
       <div><div style={{ ...s, width: "50%", height: 32, marginBottom: 8 }} /><div style={{ ...s, width: "30%", height: 16 }} /></div>
       <div style={{ ...s, height: 80 }} />
       <div style={{ ...s, height: 280 }} />
-      <div className="grid grid-cols-4 gap-3">{[...Array(4)].map((_, i) => <div key={i} style={{ ...s, height: 100 }} />)}</div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">{[...Array(4)].map((_, i) => <div key={i} style={{ ...s, height: 100 }} />)}</div>
       <div style={{ ...s, height: 120 }} />
     </div>
   );

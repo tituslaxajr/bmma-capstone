@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, startTransition } from "react";
+import { Suspense, lazy, useState, useCallback, useEffect, startTransition } from "react";
 import { Outlet, useNavigate, useLocation, Navigate } from "react-router";
 import { useAuth } from "../../lib/AuthContext";
 import { NavBar } from "../NavBar";
@@ -7,13 +7,15 @@ import { BottomNavBar } from "../BottomNavBar";
 import { MobileDrawer } from "../MobileDrawer";
 import { apiFetch } from "../../lib/supabase";
 import { AnimatedOutlet } from "../AnimatedOutlet";
-import { OnboardingTour } from "../OnboardingTour";
 import { CoordinatorViewSwitcher } from "../CoordinatorViewSwitcher";
+import { AuthShellLoader } from "./AuthShellLoader";
 import {
   LayoutDashboard, FileText,
   Calendar, BarChart3,
   Archive, Users, Settings, BookOpen, Lock,
 } from "lucide-react";
+
+const OnboardingTour = lazy(() => import("../OnboardingTour").then((m) => ({ default: m.OnboardingTour })));
 
 const PATHS = [
   "", "submissions", "defense-info", "results",
@@ -56,7 +58,7 @@ function pathToIndex(pathname: string): number {
 }
 
 export function StudentLayout() {
-  const { user, logout, needsProfileSetup } = useAuth();
+  const { user, logout, needsProfileSetup, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -113,6 +115,7 @@ export function StudentLayout() {
 
   const isCoordinatorMonitoring = user?.role === "coordinator";
 
+  if (loading) return <AuthShellLoader label="Restoring your workspace..." />;
   if (!user || (user.role !== "student" && user.role !== "coordinator")) return <Navigate to="/login" replace />;
   if (needsProfileSetup) return <Navigate to="/setup" replace />;
 
@@ -170,7 +173,7 @@ export function StudentLayout() {
           style={{ background: "#07090F" }}
           aria-label="Student main content"
         >
-          <div className="p-6 lg:p-8">
+          <div className="px-4 py-4 sm:p-6 lg:p-8">
             <AnimatedOutlet context={{ onNavigate, user }} />
           </div>
         </main>
@@ -185,7 +188,9 @@ export function StudentLayout() {
       />
       {/* Screen reader live region for dynamic updates */}
       <div aria-live="polite" aria-atomic="true" className="sr-only" id="sr-announcements" />
-      <OnboardingTour role="student" userId={user.id} />
+      <Suspense fallback={null}>
+        <OnboardingTour role="student" userId={user.id} />
+      </Suspense>
     </div>
   );
 }

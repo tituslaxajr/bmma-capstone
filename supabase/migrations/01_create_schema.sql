@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   email TEXT,
   name TEXT,
   role TEXT,
+  secondary_roles JSONB DEFAULT '[]',
   status TEXT DEFAULT 'Active',
   avatar_url TEXT,
   bio TEXT,

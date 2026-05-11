@@ -896,8 +896,11 @@ app.put("/make-server-36da3eb1/users/:id", async (c) => {
       updates.secondaryRoles = normalizeSecondaryRoles(updates.role || existing.role, updates.secondaryRoles || existing.secondaryRoles);
     }
 
-    const updated = { ...existing, ...updates, id: targetId };
-    await T("user_profiles").upd(targetId, updates);
+    const persisted = await T("user_profiles").upd(targetId, updates);
+    if (!persisted) {
+      return c.json({ error: "User update failed. Check that user_profiles has all required columns, including secondary_roles." }, 500);
+    }
+    const updated = { ...existing, ...persisted, id: targetId };
 
     // Also update auth user_metadata if role or name changed
     if (updates.role || updates.name || updates.secondaryRoles) {

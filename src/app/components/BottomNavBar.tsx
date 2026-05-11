@@ -56,6 +56,7 @@ export function BottomNavBar({ role, activeIndex, onNavigate }: BottomNavBarProp
         borderTop: `1px solid ${DT.glassBorder}`,
         boxShadow: "0 -4px 20px rgba(0,0,0,0.30)",
         backdropFilter: "blur(16px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
       {tabs.map((tab) => {

@@ -94,12 +94,9 @@ export const FORMATTING_SPECS = [
 ];
 
 export const SUBMISSION_CHECKLIST = [
-  { id: "sc-1", label: "Complete manuscript (Chapters I-IV) submitted to adviser" },
-  { id: "sc-2", label: "Multimedia output / prototype completed" },
-  { id: "sc-3", label: "Capstone Project Consultation Form signed by adviser" },
-  { id: "sc-4", label: "BMMA Project and Content Development Brief endorsed" },
-  { id: "sc-5", label: "Endorsed by Capstone Project Coordinator for Final Defense" },
-  { id: "sc-6", label: "Defense fee paid to school cashier" },
+  { id: "sc-1", label: "Submission of full manuscript" },
+  { id: "sc-2", label: "Capstone project Google Drive link" },
+  { id: "sc-3", label: "Adviser's endorsement signed form" },
 ];
 
 export const DEFENSE_PREP_STEPS = [

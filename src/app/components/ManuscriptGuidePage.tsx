@@ -269,14 +269,14 @@ function FormattingStandardsCard() {
             <span style={{ fontSize: 12, fontWeight: 600, fontFamily: FT.h }}>Download Manuscript Template</span>
           </a>
           <a
-            href="/docs/GU-CRD-032-03_BMMA_Capstone_Project_Guideline.pdf"
-            download="GU-CRD-032-03_BMMA_Capstone_Project_Guideline.pdf"
+            href="/docs/MA-CRD-003-01_STI_Capstone_Project_Manual.pdf"
+            download="MA-CRD-003-01_STI_Capstone_Project_Manual.pdf"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer hover:bg-white/[0.03]"
             style={{
               background: DT.yellowDim, border: `1px solid ${withAlpha(DT.yellow, 0.18)}`, color: DT.yellow,
             }}>
             <Download size={14} />
-            <span style={{ fontSize: 12, fontWeight: 600, fontFamily: FT.h }}>Download Capstone Project Guideline</span>
+            <span style={{ fontSize: 12, fontWeight: 600, fontFamily: FT.h }}>Download Capstone Project Manual</span>
           </a>
         </div>
       </div>

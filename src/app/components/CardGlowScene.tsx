@@ -9,7 +9,8 @@
      compact=true            → 10 particles, tighter spread (stat cards)
    ═══════════════════════════════════════════════════════ */
 import { useEffect, useRef } from "react";
-import { THREE, EffectComposer, RenderPass, UnrealBloomPass } from "../lib/three-exports";
+import { loadThreeModules } from "../lib/three-loader";
+import { useHeavyEffectsEnabled } from "../lib/effects";
 
 interface CardGlowSceneProps {
   /** Accent colour for the particles (hex string) */
@@ -26,6 +27,7 @@ interface CardGlowSceneProps {
 export function CardGlowScene({ accentColor, active, compact = false }: CardGlowSceneProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<{ targetOpacity: number } | null>(null);
+  const heavyEffectsEnabled = useHeavyEffectsEnabled();
 
   /* ── Preset parameters ── */
   const COUNT       = compact ? 10 : 14;
@@ -41,10 +43,17 @@ export function CardGlowScene({ accentColor, active, compact = false }: CardGlow
   const ATTRACT_F   = compact ? 0.5 : 0.6;
 
   useEffect(() => {
+    if (!heavyEffectsEnabled) return;
     const container = mountRef.current;
     if (!container) return;
     const W = container.clientWidth, H = container.clientHeight;
     if (W === 0 || H === 0) return;
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+
+    void (async () => {
+    const { THREE, EffectComposer, RenderPass, UnrealBloomPass } = await loadThreeModules();
+    if (cancelled) return;
 
     /* ── Renderer ── */
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
@@ -165,7 +174,7 @@ export function CardGlowScene({ accentColor, active, compact = false }: CardGlow
       pMat.uniforms.uMouseActive.value += ((mIn ? 1.0 : 0.0) - pMat.uniforms.uMouseActive.value) * 0.08;
 
       if (opacity > 0.01) {
-        const pp = geo.getAttribute("position") as THREE.BufferAttribute;
+        const pp = geo.getAttribute("position") as any;
         for (let i = 0; i < COUNT; i++) {
           let x = pp.getX(i) + drift[i * 3];
           let y = pp.getY(i) + drift[i * 3 + 1];
@@ -189,7 +198,7 @@ export function CardGlowScene({ accentColor, active, compact = false }: CardGlow
     animate();
 
     /* ── Cleanup ── */
-    return () => {
+    cleanup = () => {
       cancelAnimationFrame(raf);
       container.removeEventListener("mousemove", onMM);
       container.removeEventListener("mouseleave", onML);
@@ -200,12 +209,20 @@ export function CardGlowScene({ accentColor, active, compact = false }: CardGlow
       if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
       sceneRef.current = null;
     };
-  }, [accentColor]); // eslint-disable-line react-hooks/exhaustive-deps
+    })();
+
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, [accentColor, heavyEffectsEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Fade opacity on active change ── */
   useEffect(() => {
     if (sceneRef.current) sceneRef.current.targetOpacity = active ? 0.85 : 0;
   }, [active]);
+
+  if (!heavyEffectsEnabled) return null;
 
   return (
     <div

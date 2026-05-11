@@ -1,4 +1,4 @@
-import { useState, useCallback, startTransition } from "react";
+import { Suspense, lazy, useState, useCallback, startTransition } from "react";
 import { Outlet, useNavigate, useLocation, Navigate } from "react-router";
 import { useAuth } from "../../lib/AuthContext";
 import { NavBar } from "../NavBar";
@@ -6,12 +6,14 @@ import { CoordinatorSidebar } from "../CoordinatorSidebar";
 import { MobileDrawer } from "../MobileDrawer";
 import { BottomNavBar } from "../BottomNavBar";
 import { AnimatedOutlet } from "../AnimatedOutlet";
-import { OnboardingTour } from "../OnboardingTour";
 import { CoordinatorViewSwitcher } from "../CoordinatorViewSwitcher";
+import { AuthShellLoader } from "./AuthShellLoader";
 import {
   LayoutDashboard, Users, FolderKanban, Link2,
   FileText, ShieldCheck, Award, Archive, Settings, Database,
 } from "lucide-react";
+
+const OnboardingTour = lazy(() => import("../OnboardingTour").then((m) => ({ default: m.OnboardingTour })));
 
 const PATHS = [
   "", "users", "groups", "assignments",
@@ -59,7 +61,7 @@ function pathToIndex(pathname: string): number {
 }
 
 export function CoordinatorLayout() {
-  const { user, logout, needsProfileSetup } = useAuth();
+  const { user, logout, needsProfileSetup, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -77,6 +79,7 @@ export function CoordinatorLayout() {
     setDrawerOpen(false);
   }, [navigate]);
 
+  if (loading) return <AuthShellLoader label="Restoring your workspace..." />;
   if (!user || user.role !== "coordinator") return <Navigate to="/login" replace />;
   if (needsProfileSetup) return <Navigate to="/setup" replace />;
 
@@ -115,7 +118,7 @@ export function CoordinatorLayout() {
           style={{ background: "#07090F" }}
           aria-label="Coordinator main content"
         >
-          <div className="p-6 lg:p-8">
+          <div className="px-4 py-4 sm:p-6 lg:p-8">
             <AnimatedOutlet context={{ onNavigate, user }} />
           </div>
         </main>
@@ -130,7 +133,9 @@ export function CoordinatorLayout() {
       <BottomNavBar role="coordinator" activeIndex={activeIndex} onNavigate={onNavigate} />
       {/* Screen reader live region for dynamic updates */}
       <div aria-live="polite" aria-atomic="true" className="sr-only" id="sr-announcements" />
-      <OnboardingTour role="coordinator" userId={user.id} />
+      <Suspense fallback={null}>
+        <OnboardingTour role="coordinator" userId={user.id} />
+      </Suspense>
     </div>
   );
 }

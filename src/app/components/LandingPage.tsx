@@ -1,6 +1,8 @@
 ﻿import { useState, useEffect, useRef, useMemo } from "react";
-import { THREE, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass } from "../lib/three-exports";
-import heroBg from "../../assets/hero-bg.png";
+import { loadThreeModules } from "../lib/three-loader";
+import { useHeavyEffectsEnabled } from "../lib/effects";
+import heroBgDesktop from "../../assets/hero-bg-desktop.jpg";
+import heroBgMobile from "../../assets/hero-bg-mobile.jpg";
 import { projectId, publicAnonKey } from "../../../utils/supabase/info";
 import { withAlpha } from "./cinematic-tokens";
 import bmmaClassPhoto from "figma:asset/d358440ed31d40939f1b0ccbbdd9f3390a08162a.png";
@@ -30,6 +32,75 @@ const C = {
   goldGrad: "linear-gradient(135deg, #FFD100 0%, #FFA500 50%, #FFD100 100%)",
 };
 const font = { h: "Inter, sans-serif", b: "'DM Sans', sans-serif", m: "'JetBrains Mono', monospace" };
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() => typeof window !== "undefined" && window.matchMedia(query).matches);
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const update = () => setMatches(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [query]);
+
+  return matches;
+}
+
+function useDeferredSectionReady() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const activate = () => setReady(true);
+    const onScroll = () => {
+      if (window.scrollY > window.innerHeight * 0.35) activate();
+    };
+
+    const idleId = "requestIdleCallback" in window
+      ? window.requestIdleCallback(activate, { timeout: 1400 })
+      : window.setTimeout(activate, 1200);
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if ("cancelIdleCallback" in window && typeof idleId === "number") {
+        window.cancelIdleCallback(idleId);
+      } else {
+        window.clearTimeout(idleId as number);
+      }
+    };
+  }, []);
+
+  return ready;
+}
+
+function useRichMotionEnabled() {
+  const heavyEffectsEnabled = useHeavyEffectsEnabled();
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    if (!heavyEffectsEnabled) {
+      setEnabled(false);
+      return;
+    }
+
+    const activate = () => setEnabled(true);
+    const idleId = "requestIdleCallback" in window
+      ? window.requestIdleCallback(activate, { timeout: 1200 })
+      : window.setTimeout(activate, 300);
+
+    return () => {
+      if ("cancelIdleCallback" in window && typeof idleId === "number") {
+        window.cancelIdleCallback(idleId);
+      } else {
+        window.clearTimeout(idleId as number);
+      }
+    };
+  }, [heavyEffectsEnabled]);
+
+  return enabled;
+}
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    GLOBAL HELPERS
@@ -262,53 +333,66 @@ const ChromaticAberrationShader = {
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    THREE.JS HERO SCENE â€” VFX Glowing Particles
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-function HeroScene() {
+function HeroScene({ enabled }: { enabled: boolean }) {
   const mountRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    if (!enabled) return;
     const container = mountRef.current;
     if (!container) return;
-    const W = container.clientWidth, H = container.clientHeight;
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.setSize(W, H);
-    container.appendChild(renderer.domElement);
+    void (async () => {
+      const { THREE, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass } = await loadThreeModules();
+      if (cancelled) return;
+      const W = container.clientWidth;
+      const H = container.clientHeight;
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(72, W / H, 0.1, 2000);
-    camera.position.z = 400;
+      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      renderer.setSize(W, H);
+      container.appendChild(renderer.domElement);
 
-    /* VFX Colors */
-    const VFX_COLORS = [
-      new THREE.Color("#4D8FFF"), new THREE.Color("#FFD100"),
-      new THREE.Color("#FF6BF0"), new THREE.Color("#4ADE80"),
-      new THREE.Color("#A855F7"), new THREE.Color("#38BDF8"),
-      new THREE.Color("#FB923C"), new THREE.Color("#F87171"),
-    ];
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(72, W / H, 0.1, 2000);
+      camera.position.z = 400;
 
-    /* Particles â€” reduced from 220 for performance */
-    const PC = 120;
-    const geo = new THREE.BufferGeometry();
-    const positions = new Float32Array(PC * 3);
-    const colors = new Float32Array(PC * 3);
-    const sizes = new Float32Array(PC);
-    const vel = new Float32Array(PC * 3);
-    const phases = new Float32Array(PC);
+      /* VFX Colors */
+      const VFX_COLORS = [
+        new THREE.Color("#4D8FFF"), new THREE.Color("#FFD100"),
+        new THREE.Color("#FF6BF0"), new THREE.Color("#4ADE80"),
+        new THREE.Color("#A855F7"), new THREE.Color("#38BDF8"),
+        new THREE.Color("#FB923C"), new THREE.Color("#F87171"),
+      ];
 
-    for (let i = 0; i < PC; i++) {
-      positions[i*3]=(Math.random()-0.5)*1000; positions[i*3+1]=(Math.random()-0.5)*600; positions[i*3+2]=(Math.random()-0.5)*300;
-      const c = VFX_COLORS[i % VFX_COLORS.length];
-      colors[i*3]=c.r; colors[i*3+1]=c.g; colors[i*3+2]=c.b;
-      sizes[i] = 16 + Math.random() * 18;
-      vel[i*3]=(Math.random()-0.5)*0.3; vel[i*3+1]=(Math.random()-0.5)*0.3; vel[i*3+2]=(Math.random()-0.5)*0.15;
-      phases[i] = Math.random() * Math.PI * 2;
-    }
-    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-    geo.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
+      /* Particles */
+      const PC = 120;
+      const geo = new THREE.BufferGeometry();
+      const positions = new Float32Array(PC * 3);
+      const colors = new Float32Array(PC * 3);
+      const sizes = new Float32Array(PC);
+      const vel = new Float32Array(PC * 3);
+      const phases = new Float32Array(PC);
 
-    /* Custom glow shader with mouse-proximity breathing + cinematic DOF */
-    const pMat = new THREE.ShaderMaterial({
+      for (let i = 0; i < PC; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 1000;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * 600;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 300;
+        const c = VFX_COLORS[i % VFX_COLORS.length];
+        colors[i * 3] = c.r;
+        colors[i * 3 + 1] = c.g;
+        colors[i * 3 + 2] = c.b;
+        sizes[i] = 16 + Math.random() * 18;
+        vel[i * 3] = (Math.random() - 0.5) * 0.3;
+        vel[i * 3 + 1] = (Math.random() - 0.5) * 0.3;
+        vel[i * 3 + 2] = (Math.random() - 0.5) * 0.15;
+        phases[i] = Math.random() * Math.PI * 2;
+      }
+      geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+      geo.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
+
+      const pMat = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
         uPixelRatio: { value: renderer.getPixelRatio() },
@@ -367,23 +451,20 @@ function HeroScene() {
       `,
       transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
     });
-    scene.add(new THREE.Points(geo, pMat));
+      scene.add(new THREE.Points(geo, pMat));
 
-    /* Post-processing: Bloom + Cinematic Vignette */
-    const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
-    const bloomPass = new UnrealBloomPass(new THREE.Vector2(W, H), 1.6, 1.0, 0.04);
-    composer.addPass(bloomPass);
-    const vignettePass = new ShaderPass(VignetteShader);
-    composer.addPass(vignettePass);
-    /* Chromatic aberration removed â€” barely visible but costs a full-screen pass */
+      const composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
+      const bloomPass = new UnrealBloomPass(new THREE.Vector2(W, H), 1.6, 1.0, 0.04);
+      composer.addPass(bloomPass);
+      const vignettePass = new ShaderPass(VignetteShader);
+      composer.addPass(vignettePass);
 
-    /* Mouse */
-    const MOUSE_R = 180;
-    const m3 = new THREE.Vector3(9999, 9999, 0);
-    let mActive = false;
+      const MOUSE_R = 180;
+      const m3 = new THREE.Vector3(9999, 9999, 0);
+      let mActive = false;
 
-    const onMM = (e: MouseEvent) => {
+      const onMM = (e: MouseEvent) => {
       const r = container.getBoundingClientRect();
       if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) {
         mActive = false;
@@ -392,24 +473,24 @@ function HeroScene() {
       }
       m3.set(((e.clientX-r.left)/r.width*2-1)*500, -((e.clientY-r.top)/r.height*2-1)*300, 0);
       mActive = true;
-    };
-    const onML = () => { mActive = false; m3.set(9999,9999,0); };
-    window.addEventListener("mousemove", onMM, { passive: true });
-    window.addEventListener("mouseleave", onML);
+      };
+      const onML = () => { mActive = false; m3.set(9999, 9999, 0); };
+      window.addEventListener("mousemove", onMM, { passive: true });
+      window.addEventListener("mouseleave", onML);
 
-    const onResize = () => {
+      const onResize = () => {
       const w = container.clientWidth, h = container.clientHeight;
       renderer.setSize(w, h); composer.setSize(w, h);
       camera.aspect = w / h; camera.updateProjectionMatrix();
-    };
-    window.addEventListener("resize", onResize);
+      };
+      window.addEventListener("resize", onResize);
 
-    let raf: number;
-    let running = false;
-    const t0 = performance.now();
-    const flags = { visible: true };
+      let raf = 0;
+      let running = false;
+      const t0 = performance.now();
+      const flags = { visible: true };
 
-    const animate = () => {
+      const animate = () => {
       if (!flags.visible || document.hidden) { running = false; return; }
       running = true;
       raf = requestAnimationFrame(animate);
@@ -437,51 +518,66 @@ function HeroScene() {
 
       scene.rotation.y = Math.sin(t*0.05)*0.03;
       composer.render();
-    };
-    animate();
+      };
+      animate();
 
-    /* Viewport observer â€” pause when scrolled away */
-    const visObs = new IntersectionObserver(([e]) => {
-      flags.visible = e.isIntersecting;
-      if (e.isIntersecting && !running) animate();
-    }, { rootMargin: "200px" });
-    visObs.observe(container);
+      const visObs = new IntersectionObserver(([e]) => {
+        flags.visible = e.isIntersecting;
+        if (e.isIntersecting && !running) animate();
+      }, { rootMargin: "200px" });
+      visObs.observe(container);
 
-    const onVisChange = () => { if(!document.hidden && flags.visible && !running) animate(); };
-    document.addEventListener("visibilitychange", onVisChange);
+      const onVisChange = () => { if (!document.hidden && flags.visible && !running) animate(); };
+      document.addEventListener("visibilitychange", onVisChange);
+
+      cleanup = () => {
+        flags.visible = false;
+        cancelAnimationFrame(raf);
+        visObs.disconnect();
+        window.removeEventListener("mousemove", onMM);
+        window.removeEventListener("mouseleave", onML);
+        window.removeEventListener("resize", onResize);
+        document.removeEventListener("visibilitychange", onVisChange);
+        composer.dispose();
+        renderer.dispose();
+        if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+      };
+    })();
 
     return () => {
-      flags.visible = false;
-      cancelAnimationFrame(raf);
-      visObs.disconnect();
-      window.removeEventListener("mousemove", onMM);
-      window.removeEventListener("mouseleave", onML);
-      window.removeEventListener("resize", onResize);
-      document.removeEventListener("visibilitychange", onVisChange);
-      composer.dispose(); renderer.dispose();
-      if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+      cancelled = true;
+      cleanup?.();
     };
-  }, []);
+  }, [enabled]);
+  if (!enabled) return null;
   return <div ref={mountRef} className="absolute inset-0 pointer-events-none" style={{ zIndex: 3, filter: "blur(28px) saturate(1.45)", transform: "scale(1.14)", mixBlendMode: "screen", opacity: 0.58 }} />;
 }
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    MINI THREE.JS â€” VFX Glowing Particles for cards/sections
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-function MiniThreeScene({ particleCount = 20, colors: colorProps = [C.blue, C.yellow], shapeCount: _sc = 2 }: { particleCount?: number; colors?: string[]; shapeCount?: number }) {
+function MiniThreeScene({ particleCount = 20, colors: colorProps = [C.blue, C.yellow], shapeCount: _sc = 2, enabled = true }: { particleCount?: number; colors?: string[]; shapeCount?: number; enabled?: boolean }) {
   const mountRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    if (!enabled) return;
     const container = mountRef.current;
     if (!container) return;
-    const W = container.clientWidth, H = container.clientHeight;
-    if (W === 0 || H === 0) return;
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.setSize(W, H);
-    container.appendChild(renderer.domElement);
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 500);
-    camera.position.z = 100;
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+
+    void (async () => {
+      const { THREE, EffectComposer, RenderPass, UnrealBloomPass } = await loadThreeModules();
+      if (cancelled) return;
+      const W = container.clientWidth;
+      const H = container.clientHeight;
+      if (W === 0 || H === 0) return;
+      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      renderer.setSize(W, H);
+      container.appendChild(renderer.domElement);
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 500);
+      camera.position.z = 100;
 
     const VFX = colorProps.map(c => new THREE.Color(c));
     VFX.push(new THREE.Color("#FF6BF0"), new THREE.Color("#38BDF8"), new THREE.Color("#4ADE80"));
@@ -582,16 +678,24 @@ function MiniThreeScene({ particleCount = 20, colors: colorProps = [C.blue, C.ye
     }, { rootMargin: "100px" });
     visObs.observe(container);
 
+      cleanup = () => {
+        flags.visible = false;
+        cancelAnimationFrame(raf);
+        visObs.disconnect();
+        container.removeEventListener("mousemove", onMM);
+        container.removeEventListener("mouseleave", onML);
+        composer.dispose();
+        renderer.dispose();
+        if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+      };
+    })();
+
     return () => {
-      flags.visible = false;
-      cancelAnimationFrame(raf);
-      visObs.disconnect();
-      container.removeEventListener("mousemove", onMM);
-      container.removeEventListener("mouseleave", onML);
-      composer.dispose(); renderer.dispose();
-      if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+      cancelled = true;
+      cleanup?.();
     };
-  }, []);
+  }, [colorProps, enabled, particleCount]);
+  if (!enabled) return null;
   return <div ref={mountRef} className="absolute inset-0" style={{ zIndex: 0, filter: "blur(18px) saturate(1.35)", transform: "scale(1.1)" }} />;
 }
 
@@ -599,24 +703,32 @@ function MiniThreeScene({ particleCount = 20, colors: colorProps = [C.blue, C.ye
    THREE.JS â€” Hover-activated VFX glowing particles
    Colorful, bright, glowing, mouse-reactive
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-function CardMicroScene({ accentColor, active }: { accentColor: string; active: boolean }) {
+function CardMicroScene({ accentColor, active, enabled = true }: { accentColor: string; active: boolean; enabled?: boolean }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<{ targetOpacity: number } | null>(null);
 
   useEffect(() => {
+    if (!enabled) return;
     const container = mountRef.current;
     if (!container) return;
-    const W = container.clientWidth, H = container.clientHeight;
-    if (W === 0 || H === 0) return;
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.setSize(W, H);
-    container.appendChild(renderer.domElement);
+    void (async () => {
+      const { THREE, EffectComposer, RenderPass, UnrealBloomPass } = await loadThreeModules();
+      if (cancelled) return;
+      const W = container.clientWidth;
+      const H = container.clientHeight;
+      if (W === 0 || H === 0) return;
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 200);
-    camera.position.z = 60;
+      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      renderer.setSize(W, H);
+      container.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 200);
+      camera.position.z = 60;
 
     const count = 14;
     const accent = new THREE.Color(accentColor);
@@ -732,22 +844,32 @@ function CardMicroScene({ accentColor, active }: { accentColor: string; active: 
     }, { rootMargin: "100px" });
     visObs.observe(container);
 
+      cleanup = () => {
+        flags.visible = false;
+        cancelAnimationFrame(raf);
+        visObs.disconnect();
+        container.removeEventListener("mousemove", onMM);
+        container.removeEventListener("mouseleave", onML);
+        composer.dispose();
+        renderer.dispose();
+        geo.dispose();
+        pMat.dispose();
+        if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+        sceneRef.current = null;
+      };
+    })();
+
     return () => {
-      flags.visible = false;
-      cancelAnimationFrame(raf);
-      visObs.disconnect();
-      container.removeEventListener("mousemove", onMM);
-      container.removeEventListener("mouseleave", onML);
-      composer.dispose(); renderer.dispose(); geo.dispose(); pMat.dispose();
-      if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
-      sceneRef.current = null;
+      cancelled = true;
+      cleanup?.();
     };
-  }, [accentColor]);
+  }, [accentColor, enabled]);
 
   useEffect(() => {
     if (sceneRef.current) sceneRef.current.targetOpacity = active ? 0.85 : 0;
   }, [active]);
 
+  if (!enabled) return null;
   return <div ref={mountRef} className="absolute inset-0" style={{ zIndex: 0, filter: "blur(18px) saturate(1.35)", transform: "scale(1.1)" }} />;
 }
 
@@ -978,7 +1100,7 @@ function HeroRotatingWord({ words, startDelay = 600, typeSpeed = 70, deleteSpeed
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    HERO SECTION
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-function HeroSection({ onEnterPortal, defenses, stats }: { onEnterPortal: () => void; defenses: LandingDefense[]; stats: LandingStats | null }) {
+function HeroSection({ onEnterPortal, defenses, stats, richMotionEnabled, isMobile }: { onEnterPortal: () => void; defenses: LandingDefense[]; stats: LandingStats | null; richMotionEnabled: boolean; isMobile: boolean }) {
   const [loaded, setLoaded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   useEffect(() => { requestAnimationFrame(() => setLoaded(true)); }, []);
@@ -1015,13 +1137,15 @@ function HeroSection({ onEnterPortal, defenses, stats }: { onEnterPortal: () => 
 
       {/* High-resolution static hero background */}
       <img
-        src={heroBg}
+        src={isMobile ? heroBgMobile : heroBgDesktop}
         alt=""
         aria-hidden="true"
         className="absolute inset-0 w-full h-full object-cover z-[0]"
+        loading="eager"
+        decoding="async"
         style={{
           objectPosition: "center center",
-          transform: `translate3d(0, ${scrollY * 0.16}px, 0) scale(1.08)`,
+          transform: isMobile ? "scale(1.02)" : `translate3d(0, ${scrollY * 0.16}px, 0) scale(1.08)`,
           transformOrigin: "center top",
           willChange: "transform",
         }}
@@ -1036,7 +1160,7 @@ function HeroSection({ onEnterPortal, defenses, stats }: { onEnterPortal: () => 
         mixBlendMode: "screen",
       }} />
 
-      <HeroScene />
+      <HeroScene enabled={richMotionEnabled} />
 
       {/* Top & bottom fades */}
       <div className="absolute top-0 left-0 right-0 pointer-events-none z-[3]" style={{ height: 120, background: "linear-gradient(to bottom, #020A1F 0%, transparent 100%)" }} />
@@ -1281,7 +1405,7 @@ function AboutSection({ stats: liveStats, groupCount }: { stats: LandingStats | 
             aspectRatio: "4/3", background: C.deep,
             border: `1px solid ${C.borderSub}`, boxShadow: "0 20px 60px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.03)",
           }}>
-            <img src={bmmaClassPhoto} alt="BMMA Capstone Class - STI College San Fernando" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: "center 30%" }} />
+            <img src={bmmaClassPhoto} alt="BMMA Capstone Class - STI College San Fernando" className="absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async" style={{ objectPosition: "center 30%" }} />
             {/* Subtle vignette overlay */}
             <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 50%, rgba(7,9,15,0.45) 100%)" }} />
             <div className="absolute bottom-0 left-0 right-0 p-8 z-[1]" style={{ background: "linear-gradient(to top, rgba(12,15,26,0.97) 20%, rgba(12,15,26,0.6) 60%, transparent)" }}>
@@ -1420,7 +1544,7 @@ function CreatorStrip({ groups }: { groups: GroupData[] }) {
                   }}>
                   <div className="relative overflow-hidden" style={{ aspectRatio: "4/5", background: `linear-gradient(145deg, ${withAlpha(C.blue, 0.18)}, ${C.raised})` }}>
                     {creator.avatarUrl ? (
-                      <img src={creator.avatarUrl} alt={creator.name} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: "center top" }} />
+                      <img src={creator.avatarUrl} alt={creator.name} className="absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async" style={{ objectPosition: "center top" }} />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center" style={{ fontFamily: font.h, fontSize: 24, fontWeight: 800, color: C.textPri }}>
                         {creator.initials}
@@ -1462,7 +1586,7 @@ const statusBadge = (st: string) => {
   return <span className="px-2.5 py-0.5 rounded-full" style={{ fontSize: 10, fontWeight: 600, color: s.c, background: s.bg }}>{st}</span>;
 };
 
-function GroupShowcase({ groups, loading = false }: { groups: GroupData[]; loading?: boolean }) {
+function GroupShowcase({ groups, loading = false, richMotionEnabled }: { groups: GroupData[]; loading?: boolean; richMotionEnabled: boolean }) {
   const [filter, setFilter] = useState("All");
   // Build filters dynamically from actual group types, preserving preferred order
   const preferredOrder = ["Short Film", "Photo Exhibit", "Social Media", "Documentary", "Infographic"];
@@ -1536,9 +1660,9 @@ function GroupShowcase({ groups, loading = false }: { groups: GroupData[]; loadi
                   {/* Top visual */}
                   <div className="relative overflow-hidden" style={{ aspectRatio: "4/3", background: tc.gradient }}>
                     {g.photoUrl ? (
-                      <img src={g.photoUrl} alt={g.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" style={{ zIndex: 0, objectPosition: "center top" }} />
+                      <img src={g.photoUrl} alt={g.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" style={{ zIndex: 0, objectPosition: "center top" }} />
                     ) : (
-                      <CardMicroScene accentColor={tc.accent} active={hoveredCardId === g.id} />
+                      <CardMicroScene accentColor={tc.accent} active={hoveredCardId === g.id} enabled={richMotionEnabled} />
                     )}
                     {!g.photoUrl && <div className="absolute inset-0 flex items-center justify-center transition-transform duration-500 group-hover:scale-110" style={{ color: "rgba(255,255,255,0.08)", zIndex: 1 }}>{tc.icon}</div>}
                     {g.photoUrl && <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(7,9,15,0.10) 0%, rgba(7,9,15,0.35) 50%, rgba(22,27,46,0.95) 100%)", zIndex: 1 }} />}
@@ -1565,7 +1689,7 @@ function GroupShowcase({ groups, loading = false }: { groups: GroupData[]; loadi
                         {g.members.map((m, j) => (
                           <div key={memberInitials(m)} className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold transition-transform duration-200 group-hover:translate-x-0.5 overflow-hidden"
                             style={{ background: C.elevated, border: `2px solid ${C.borderDef}`, color: C.textSec, zIndex: 3 - j }}>
-                            {memberAvatar(m) ? <img src={memberAvatar(m)!} alt={memberName(m)} className="w-full h-full object-cover" /> : memberInitials(m)}
+                            {memberAvatar(m) ? <img src={memberAvatar(m)!} alt={memberName(m)} className="w-full h-full object-cover" loading="lazy" decoding="async" /> : memberInitials(m)}
                           </div>
                         ))}
                       </div>
@@ -1589,9 +1713,9 @@ function GroupShowcase({ groups, loading = false }: { groups: GroupData[]; loadi
             {/* Left visual */}
             <div className="lg:col-span-5 relative" style={{ minHeight: 300, background: getTypeConfig(selectedGroup.type).gradient }}>
               {selectedGroup.photoUrl ? (
-                <img src={selectedGroup.photoUrl} alt={selectedGroup.name} className="absolute inset-0 w-full h-full object-cover" style={{ zIndex: 0, objectPosition: "center top" }} />
+                <img src={selectedGroup.photoUrl} alt={selectedGroup.name} className="absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async" style={{ zIndex: 0, objectPosition: "center top" }} />
               ) : (
-                <MiniThreeScene particleCount={20} shapeCount={3} colors={[C.stiBlue, C.yellow]} />
+                <MiniThreeScene particleCount={20} shapeCount={3} colors={[C.stiBlue, C.yellow]} enabled={richMotionEnabled} />
               )}
               {selectedGroup.photoUrl && <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(7,9,15,0.10) 0%, rgba(7,9,15,0.25) 40%, rgba(17,21,39,0.90) 100%)", zIndex: 1 }} />}
               <div className="absolute bottom-0 left-0 right-0 p-7 z-[2]" style={{ background: "linear-gradient(to top, rgba(17,21,39,0.95), transparent)" }}>
@@ -1605,7 +1729,7 @@ function GroupShowcase({ groups, loading = false }: { groups: GroupData[]; loadi
                   {selectedGroup.members.map((m, j) => (
                     <div key={memberInitials(m)} className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold overflow-hidden"
                       style={{ background: C.elevated, border: `2px solid ${C.borderDef}`, color: C.textSec, zIndex: 3 - j }}>
-                      {memberAvatar(m) ? <img src={memberAvatar(m)!} alt={memberName(m)} className="w-full h-full object-cover" /> : memberInitials(m)}
+                      {memberAvatar(m) ? <img src={memberAvatar(m)!} alt={memberName(m)} className="w-full h-full object-cover" loading="lazy" decoding="async" /> : memberInitials(m)}
                     </div>
                   ))}
                 </div>
@@ -1671,14 +1795,14 @@ function GroupShowcase({ groups, loading = false }: { groups: GroupData[]; loadi
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    PROJECT OUTPUTS SHOWCASE â€” Horizontal scroll
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-function OutputsShowcase({ groups }: { groups: GroupData[] }) {
+function OutputsShowcase({ groups, richMotionEnabled }: { groups: GroupData[]; richMotionEnabled: boolean }) {
   const [selectedGroup, setSelectedGroup] = useState<GroupData | null>(null);
   const cards = groups.map((g) => ({ ...g, ...getTypeConfig(g.type), heroImg: g.featureImageUrl || g.photoUrl || null }));
   const outputTypes = [...new Set(cards.map((card) => card.type))];
 
   return (
     <section id="outputs" className="relative overflow-hidden" style={{ background: C.deep, padding: "120px clamp(18px, 5vw, 40px)" }}>
-      <MiniThreeScene particleCount={80} colors={[C.stiBlue, C.yellow, "#1E0040"]} shapeCount={0} />
+      <MiniThreeScene particleCount={80} colors={[C.stiBlue, C.yellow, "#1E0040"]} shapeCount={0} enabled={richMotionEnabled} />
       <div className="relative z-[1] max-w-[1280px] mx-auto">
         {/* Header */}
         <FadeIn className="mb-12">
@@ -1731,7 +1855,7 @@ function OutputsShowcase({ groups }: { groups: GroupData[] }) {
                   {/* Visual */}
                   <div className="relative" style={{ minHeight: 230, background: c.gradient }}>
                     {c.heroImg ? (
-                      <img src={c.heroImg} alt={c.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                      <img src={c.heroImg} alt={c.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center transition-transform duration-500 group-hover:scale-110" style={{ color: "rgba(255,255,255,0.09)" }}>{c.icon}</div>
                     )}
@@ -1758,7 +1882,7 @@ function OutputsShowcase({ groups }: { groups: GroupData[] }) {
                         {c.members.slice(0, 3).map((m, j) => (
                           <div key={`${memberInitials(m)}-${j}`} className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold overflow-hidden"
                             style={{ background: C.elevated, border: `2px solid ${C.borderDef}`, color: C.textSec, zIndex: 3 - j }}>
-                            {memberAvatar(m) ? <img src={memberAvatar(m)!} alt={memberName(m)} className="w-full h-full object-cover" /> : memberInitials(m)}
+                            {memberAvatar(m) ? <img src={memberAvatar(m)!} alt={memberName(m)} className="w-full h-full object-cover" loading="lazy" decoding="async" /> : memberInitials(m)}
                           </div>
                         ))}
                       </div>
@@ -1790,9 +1914,9 @@ function OutputsShowcase({ groups }: { groups: GroupData[] }) {
             {/* Left visual â€” feature image preferred */}
             <div className="lg:col-span-5 relative" style={{ minHeight: 300, background: getTypeConfig(selectedGroup.type).gradient }}>
               {modalHero ? (
-                <img src={modalHero} alt={selectedGroup.name} className="absolute inset-0 w-full h-full object-cover" style={{ zIndex: 0, objectPosition: "center top" }} />
+                <img src={modalHero} alt={selectedGroup.name} className="absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async" style={{ zIndex: 0, objectPosition: "center top" }} />
               ) : (
-                <MiniThreeScene particleCount={20} shapeCount={3} colors={[C.stiBlue, C.yellow]} />
+                <MiniThreeScene particleCount={20} shapeCount={3} colors={[C.stiBlue, C.yellow]} enabled={richMotionEnabled} />
               )}
               {modalHero && <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(7,9,15,0.10) 0%, rgba(7,9,15,0.25) 40%, rgba(17,21,39,0.90) 100%)", zIndex: 1 }} />}
               <div className="absolute bottom-0 left-0 right-0 p-7 z-[2]" style={{ background: "linear-gradient(to top, rgba(17,21,39,0.95), transparent)" }}>
@@ -1836,7 +1960,7 @@ function OutputsShowcase({ groups }: { groups: GroupData[] }) {
                   {selectedGroup.members.map(m => (
                     <span key={memberInitials(m)} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1" style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${C.borderSub}` }}>
                       <span className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold overflow-hidden" style={{ background: C.elevated, color: C.textSec }}>
-                        {memberAvatar(m) ? <img src={memberAvatar(m)!} alt={memberName(m)} className="w-full h-full object-cover" /> : memberInitials(m)}
+                        {memberAvatar(m) ? <img src={memberAvatar(m)!} alt={memberName(m)} className="w-full h-full object-cover" loading="lazy" decoding="async" /> : memberInitials(m)}
                       </span>
                       <span style={{ fontFamily: font.b, fontSize: 12, color: C.textSec }}>{memberName(m)}</span>
                     </span>
@@ -2086,7 +2210,7 @@ function DefenseDaySection({ defenses, defenseDates }: { defenses: LandingDefens
             }}>
               {/* Top â€” Class photo */}
               <div className="relative" style={{ height: 200, background: C.base }}>
-                <img src={bmmaClassPhoto} alt="BMMA Class" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: "center 25%" }} />
+                <img src={bmmaClassPhoto} alt="BMMA Class" className="absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async" style={{ objectPosition: "center 25%" }} />
                 <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(7,9,15,0.10) 0%, rgba(17,21,39,0.85) 100%)" }} />
                 <div className="absolute bottom-0 left-0 right-0 p-6 z-[1]">
                   <div style={{ fontFamily: font.h, fontSize: 20, fontWeight: 700, color: C.textPri, textShadow: "0 2px 12px rgba(0,0,0,0.6)" }}>
@@ -2152,7 +2276,7 @@ function DefenseDaySection({ defenses, defenseDates }: { defenses: LandingDefens
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    PORTAL CTA SECTION
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-function PortalCTA({ onEnterPortal }: { onEnterPortal: () => void }) {
+function PortalCTA({ onEnterPortal, richMotionEnabled }: { onEnterPortal: () => void; richMotionEnabled: boolean }) {
   return (
     <section style={{ background: C.deep, padding: "100px clamp(20px, 5vw, 40px)" }}>
       <FadeIn className="max-w-[720px] mx-auto">
@@ -2161,7 +2285,7 @@ function PortalCTA({ onEnterPortal }: { onEnterPortal: () => void }) {
           border: `1px solid ${C.borderSub}`, padding: "70px 44px",
           boxShadow: "0 0 100px rgba(77,143,255,0.06), 0 20px 60px rgba(0,0,0,0.3)",
         }}>
-          <MiniThreeScene particleCount={30} colors={[C.blue, C.yellow, "#ffffff"]} shapeCount={0} />
+          <MiniThreeScene particleCount={30} colors={[C.blue, C.yellow, "#ffffff"]} shapeCount={0} enabled={richMotionEnabled} />
           {/* Decorative glow */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[1px]" style={{ background: `linear-gradient(90deg, transparent, ${withAlpha(C.blue, 0.25)}, ${withAlpha(C.yellow, 0.19)}, transparent)` }} />
           <div className="relative z-[1]">
@@ -2373,6 +2497,9 @@ function BackToTop() {
 export function LandingPage({ onEnterPortal }: { onEnterPortal: () => void }) {
   const activeSection = useActiveSection();
   const { groups, loading, source, live } = useLandingData();
+  const richMotionEnabled = useRichMotionEnabled();
+  const deferredSectionsReady = useDeferredSectionReady();
+  const isMobile = useMediaQuery("(max-width: 767px)");
 
   // Activate lerp-based smooth scroll (desktop only, 0.08 factor)
   useLerpScroll(0.08);
@@ -2381,17 +2508,31 @@ export function LandingPage({ onEnterPortal }: { onEnterPortal: () => void }) {
     <div className="landing-root" style={{ background: C.base, color: C.textPri, overflowX: "hidden" }}>
       <ScrollProgress />
       <LandingNav onEnterPortal={onEnterPortal} activeSection={activeSection} />
-      <HeroSection onEnterPortal={onEnterPortal} defenses={live.defenses} stats={live.stats} />
+      <HeroSection onEnterPortal={onEnterPortal} defenses={live.defenses} stats={live.stats} richMotionEnabled={richMotionEnabled} isMobile={isMobile} />
       <SectionDivider accent={C.blue} />
       <AboutSection stats={live.stats} groupCount={groups.length} />
-      <SectionDivider accent={C.blue} />
-      <GroupShowcase groups={groups} loading={loading} />
-      <SectionDivider accent={C.yellow} />
-      <OutputsShowcase groups={groups} />
-      <SectionDivider accent={C.error} />
-      <DefenseDaySection defenses={live.defenses} defenseDates={live.defenseDates} />
-      <SectionDivider accent={C.blue} />
-      <PortalCTA onEnterPortal={onEnterPortal} />
+      {deferredSectionsReady ? (
+        <>
+          <SectionDivider accent={C.blue} />
+          <GroupShowcase groups={groups} loading={loading} richMotionEnabled={richMotionEnabled} />
+          <SectionDivider accent={C.yellow} />
+          <OutputsShowcase groups={groups} richMotionEnabled={richMotionEnabled} />
+          <SectionDivider accent={C.error} />
+          <DefenseDaySection defenses={live.defenses} defenseDates={live.defenseDates} />
+          <SectionDivider accent={C.blue} />
+          <PortalCTA onEnterPortal={onEnterPortal} richMotionEnabled={richMotionEnabled} />
+        </>
+      ) : (
+        <section style={{ background: C.base, padding: "80px 20px 120px" }}>
+          <div className="max-w-[1280px] mx-auto">
+            <div className="rounded-3xl p-8" style={{ background: C.raised, border: `1px solid ${C.borderSub}` }}>
+              <div className="h-6 w-32 rounded-lg" style={{ background: C.elevated }} />
+              <div className="mt-4 h-12 max-w-xl rounded-xl" style={{ background: C.elevated }} />
+              <div className="mt-3 h-4 max-w-2xl rounded-lg" style={{ background: C.elevated }} />
+            </div>
+          </div>
+        </section>
+      )}
       <Footer onEnterPortal={onEnterPortal} />
       <BackToTop />
       <style>{`

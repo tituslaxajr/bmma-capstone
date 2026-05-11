@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, type ChangeEvent } from "react";
+import { lazy, useState, useEffect, useCallback, useRef, type ChangeEvent } from "react";
 import {
   Shield, Upload, FileText, Search, AlertTriangle, CheckCircle2,
   ExternalLink, Trash2, BarChart3, ChevronDown, ChevronUp,
@@ -9,8 +9,11 @@ import { apiFetch } from "../lib/supabase";
 import { toast } from "sonner";
 import { extractTextFromPDF as extractPdf } from "../lib/pdf-extract";
 import { AIReportDisplay, AIAnalyzeButton } from "./AIAnalysisPanel";
-import { ExportReportButton, ExportAllButton, RateLimitIndicator } from "./ReportExporter";
 import { Brain } from "lucide-react";
+
+const ExportReportButton = lazy(() => import("./ReportExporter").then((m) => ({ default: m.ExportReportButton })));
+const ExportAllButton = lazy(() => import("./ReportExporter").then((m) => ({ default: m.ExportAllButton })));
+const RateLimitIndicator = lazy(() => import("./ReportExporter").then((m) => ({ default: m.RateLimitIndicator })));
 
 /* ═══════════════════════════════════════════
    AI DETECTION CHECKER PAGE — Coordinator Tool

@@ -14,3 +14,10 @@ Thumbs.db
 
 .vercel
 .env*.local
+supabase/.temp/
+vite-dev-*.log
+vite-dev-*.err.log
+vite-preview-*.log
+vite-preview-*.err.log
+mobile-preview-*.png
+mobile-page-metrics.json

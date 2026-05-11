@@ -14,10 +14,18 @@ export const supabase = getSupabase();
 export const API_BASE = `${SUPABASE_URL}/functions/v1/make-server-36da3eb1`;
 
 /* ─── Fire-and-forget warm-up ping ─── */
-fetch(`${API_BASE}/health`, {
-  method: "GET",
-  headers: { Authorization: `Bearer ${publicAnonKey}` },
-}).catch(() => {});
+let warmupPromise: Promise<void> | null = null;
+
+export function warmApiConnection(): Promise<void> {
+  if (!warmupPromise) {
+    warmupPromise = fetch(`${API_BASE}/health`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${publicAnonKey}` },
+    }).then(() => undefined).catch(() => undefined);
+  }
+
+  return warmupPromise;
+}
 
 /* ─── Session / token cache ─── */
 let _cachedToken: string | null = null;

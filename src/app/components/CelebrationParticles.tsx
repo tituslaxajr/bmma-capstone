@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { THREE } from "../lib/three-exports";
+import { loadThreeModules } from "../lib/three-loader";
+import { useHeavyEffectsEnabled } from "../lib/effects";
 
 /**
  * Gentle celebration particles — small circles floating upward
@@ -7,10 +8,18 @@ import { THREE } from "../lib/three-exports";
  */
 export function CelebrationParticles() {
   const mountRef = useRef<HTMLDivElement>(null);
+  const heavyEffectsEnabled = useHeavyEffectsEnabled();
 
   useEffect(() => {
+    if (!heavyEffectsEnabled) return;
     const container = mountRef.current;
     if (!container) return;
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+
+    void (async () => {
+    const { THREE } = await loadThreeModules();
+    if (cancelled) return;
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -96,7 +105,7 @@ export function CelebrationParticles() {
     let animId: number;
     const animate = () => {
       animId = requestAnimationFrame(animate);
-      const posAttr = geo.getAttribute("position") as THREE.BufferAttribute;
+      const posAttr = geo.getAttribute("position") as any;
       const hh = h / 2 + 10;
 
       for (let i = 0; i < COUNT; i++) {
@@ -124,7 +133,7 @@ export function CelebrationParticles() {
     };
     window.addEventListener("resize", onResize);
 
-    return () => {
+    cleanup = () => {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", onResize);
       renderer.dispose();
@@ -132,7 +141,15 @@ export function CelebrationParticles() {
       mat.dispose();
       if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
     };
-  }, []);
+    })();
+
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, [heavyEffectsEnabled]);
+
+  if (!heavyEffectsEnabled) return null;
 
   return <div ref={mountRef} className="absolute inset-0" style={{ zIndex: 0 }} />;
 }

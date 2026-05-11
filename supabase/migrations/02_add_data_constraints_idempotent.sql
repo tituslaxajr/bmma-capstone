@@ -33,13 +33,17 @@ $$ LANGUAGE plpgsql;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- USER_PROFILES
--- Backend columns: id, email, name, role, status, avatar_url, bio, contact,
+-- Backend columns: id, email, name, role, secondary_roles, status, avatar_url, bio, contact,
 --   student_id, group_number, created_at, updated_at
 -- ────────────────────────────────────────────────────────────────────────────
 SELECT _safe_set_not_null('user_profiles', 'id');
 SELECT _safe_set_not_null('user_profiles', 'email');
 SELECT _safe_set_not_null('user_profiles', 'name');
 SELECT _safe_set_not_null('user_profiles', 'role');
+
+DO $$ BEGIN
+  ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS secondary_roles JSONB DEFAULT '[]';
+EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'user_profiles.secondary_roles: %', SQLERRM; END $$;
 
 SELECT _safe_add_check('user_profiles', 'user_profiles_role_check',
   $$role IN ('student', 'panelist', 'adviser', 'coordinator')$$);

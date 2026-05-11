@@ -7,6 +7,9 @@
 -- USER_PROFILES: Core user data
 -- ────────────────────────────────────────────────────────────────────────────
 ALTER TABLE user_profiles
+  ADD COLUMN IF NOT EXISTS secondary_roles JSONB DEFAULT '[]';
+
+ALTER TABLE user_profiles
   ALTER COLUMN id SET NOT NULL,
   ALTER COLUMN email SET NOT NULL,
   ALTER COLUMN name SET NOT NULL,

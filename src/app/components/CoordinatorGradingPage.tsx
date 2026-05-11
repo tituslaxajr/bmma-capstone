@@ -1,5 +1,5 @@
 import { supabase, apiFetch } from "../lib/supabase";
-import { useState, useEffect, useCallback } from "react";
+import { Suspense, lazy, useState, useEffect, useCallback } from "react";
 import type { CSSProperties } from "react";
 import {
   Loader2, Inbox, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp,
@@ -8,8 +8,9 @@ import {
 } from "lucide-react";
 import { DT, FT, withAlpha } from "./cinematic-tokens";
 import { toast } from "sonner";
-import { GradePDFExporter } from "./GradePDFExporter";
-import { GradeDistributionChart } from "./GradeDistributionChart";
+
+const GradePDFExporter = lazy(() => import("./GradePDFExporter").then((m) => ({ default: m.GradePDFExporter })));
+const GradeDistributionChart = lazy(() => import("./GradeDistributionChart").then((m) => ({ default: m.GradeDistributionChart })));
 
 /* ─── Rating UI ─── */
 const RATING_LABELS: Record<number, { label: string; color: string }> = {
@@ -789,7 +790,9 @@ function FinalGradesTab() {
           {aggregating === "all" ? <Loader2 size={14} className="animate-spin" /> : <BarChart3 size={14} />}
           Aggregate All Groups
         </button>
-        <GradePDFExporter grades={pdfGrades} />
+        <Suspense fallback={null}>
+          <GradePDFExporter grades={pdfGrades} />
+        </Suspense>
         <div className="flex items-center gap-4 ml-auto" style={{ fontSize: 12, color: DT.textTer }}>
           <span><strong style={{ color: DT.textPri }}>{aggregatedCount}</strong> aggregated</span>
           <span><strong style={{ color: DT.success }}>{releasedCount}</strong> released</span>
@@ -807,7 +810,9 @@ function FinalGradesTab() {
 
       {/* Grade Distribution Chart */}
       {allScores.length > 0 && (
-        <GradeDistributionChart scores={allScores} title="Defense Grade Distribution" />
+        <Suspense fallback={null}>
+          <GradeDistributionChart scores={allScores} title="Defense Grade Distribution" />
+        </Suspense>
       )}
 
       {overview.length === 0 ? (

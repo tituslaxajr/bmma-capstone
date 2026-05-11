@@ -1,7 +1,9 @@
 import { Menu, Bell, Search, ChevronDown } from "lucide-react";
-import { useState, useCallback, useEffect, type ReactNode } from "react";
-import { NotificationCenter, useNotificationCount } from "./NotificationCenter";
-import { GlobalSearch } from "./GlobalSearch";
+import { useState, useCallback, useEffect, lazy, Suspense, type ReactNode } from "react";
+import { useNotificationCount } from "./notification-store";
+
+const NotificationCenter = lazy(() => import("./NotificationCenter").then((m) => ({ default: m.NotificationCenter })));
+const GlobalSearch = lazy(() => import("./GlobalSearch").then((m) => ({ default: m.GlobalSearch })));
 
 /* ─── Role Chip Colors ─── */
 const ROLE_CHIP: Record<string, { bg: string; text: string }> = {
@@ -41,8 +43,6 @@ export function NavBar({ userName = "Maria Santos", role = "Student", avatarUrl,
   const chip = ROLE_CHIP[role ?? "Student"] ?? ROLE_CHIP.Student;
   const avatarColor = ROLE_AVATAR[role ?? "Student"] ?? "#4D8FFF";
   const rootLabel = ROLE_ROOT_LABEL[role ?? "Student"] ?? "Dashboard";
-  const isDark = role === "Student";
-
   const closeNotif = useCallback(() => setNotifOpen(false), []);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
 
@@ -61,7 +61,7 @@ export function NavBar({ userName = "Maria Santos", role = "Student", avatarUrl,
   return (
     <>
       <nav
-        className="px-6 flex items-center justify-between shrink-0 z-30 relative"
+        className="px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-2 shrink-0 z-30 relative"
         style={{
           height: "64px",
           fontFamily: "var(--font-body)",
@@ -70,7 +70,7 @@ export function NavBar({ userName = "Maria Santos", role = "Student", avatarUrl,
         }}
       >
         {/* ── Left: Hamburger (mobile) + Wordmark ── */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-2 shrink min-w-0">
           <button
             className="md:hidden w-9 h-9 rounded-[10px] flex items-center justify-center transition cursor-pointer"
             style={{ color: "rgba(238,240,246,0.55)" }}
@@ -82,7 +82,7 @@ export function NavBar({ userName = "Maria Santos", role = "Student", avatarUrl,
           <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, rgba(77,143,255,0.15), rgba(255,209,0,0.10))", border: "1px solid rgba(255,255,255,0.11)" }}>
             <span style={{ fontFamily: "var(--font-heading)", fontSize: "14px", fontWeight: 800, color: "#FFD100" }}>C</span>
           </div>
-          <div className="flex flex-col">
+          <div className="flex min-w-0 flex-col">
             <span style={{ fontFamily: "var(--font-heading)", fontSize: "16px", fontWeight: 700, lineHeight: 1.15, color: "#EEF0F6" }}>
               Hue We Are
             </span>
@@ -100,12 +100,14 @@ export function NavBar({ userName = "Maria Santos", role = "Student", avatarUrl,
         )}
 
         {/* ── Right: Actions ── */}
-        <div className="flex items-center gap-2.5">
-          {viewSwitcher}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          <div className="hidden sm:block">
+            {viewSwitcher}
+          </div>
 
           <button
             onClick={() => setSearchOpen(true)}
-            className="w-10 h-10 rounded-xl flex items-center justify-center transition cursor-pointer hover:bg-[rgba(255,255,255,0.05)]"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition cursor-pointer hover:bg-[rgba(255,255,255,0.05)]"
             style={{ color: "rgba(238,240,246,0.38)" }}
             title="Search (Ctrl+K)"
             aria-label="Search (Ctrl+K)"
@@ -116,7 +118,7 @@ export function NavBar({ userName = "Maria Santos", role = "Student", avatarUrl,
           <div className="relative">
             <button
               onClick={() => setNotifOpen(!notifOpen)}
-              className="relative w-10 h-10 rounded-xl flex items-center justify-center transition cursor-pointer hover:bg-[rgba(255,255,255,0.05)]"
+              className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition cursor-pointer hover:bg-[rgba(255,255,255,0.05)]"
               style={{ color: "rgba(238,240,246,0.38)" }}
             >
               <Bell size={20} />
@@ -129,13 +131,17 @@ export function NavBar({ userName = "Maria Santos", role = "Student", avatarUrl,
                 </span>
               )}
             </button>
-            <NotificationCenter open={notifOpen} onClose={closeNotif} />
+            {notifOpen ? (
+              <Suspense fallback={null}>
+                <NotificationCenter open={notifOpen} onClose={closeNotif} />
+              </Suspense>
+            ) : null}
           </div>
 
           <div className="hidden sm:block w-px h-9 mx-0.5" style={{ background: "rgba(255,255,255,0.06)" }} />
 
-          <button className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition cursor-pointer hover:bg-[rgba(255,255,255,0.05)]">
-            <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center" style={{ background: avatarColor }}>
+          <button className="flex items-center gap-2 px-1.5 sm:px-2.5 py-2 rounded-xl transition cursor-pointer hover:bg-[rgba(255,255,255,0.05)] max-w-[132px] sm:max-w-none">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center" style={{ background: avatarColor }}>
               {avatarUrl ? (
                 <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" />
               ) : (
@@ -144,18 +150,22 @@ export function NavBar({ userName = "Maria Santos", role = "Student", avatarUrl,
                 </span>
               )}
             </div>
-            <div className="hidden sm:flex flex-col items-start">
+            <div className="hidden md:flex min-w-0 flex-col items-start">
               <span style={{ fontFamily: "var(--font-heading)", fontSize: "13px", fontWeight: 700, lineHeight: 1.2, color: "#EEF0F6" }}>{userName}</span>
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${chip.bg} ${chip.text}`} style={{ fontSize: "11px", fontWeight: 500, lineHeight: 1 }}>
                 {role}
               </span>
             </div>
-            <ChevronDown size={14} className="hidden sm:block" style={{ color: "rgba(238,240,246,0.38)" }} />
+            <ChevronDown size={14} className="hidden md:block" style={{ color: "rgba(238,240,246,0.38)" }} />
           </button>
         </div>
       </nav>
 
-      <GlobalSearch open={searchOpen} onClose={closeSearch} />
+      {searchOpen ? (
+        <Suspense fallback={null}>
+          <GlobalSearch open={searchOpen} onClose={closeSearch} />
+        </Suspense>
+      ) : null}
     </>
   );
 }

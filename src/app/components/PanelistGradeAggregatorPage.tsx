@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { Suspense, lazy, useState, useEffect, useCallback, useRef } from "react";
 import type { CSSProperties } from "react";
 import {
   Loader2, Inbox, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp,
@@ -9,7 +9,8 @@ import { DT, FT, withAlpha } from "./cinematic-tokens";
 import { apiFetch } from "../lib/supabase";
 import { useInView, Fade, cardBg } from "./ui/shared-ui";
 import { PageShell } from "./PageShell";
-import { GradePDFExporter } from "./GradePDFExporter";
+
+const GradePDFExporter = lazy(() => import("./GradePDFExporter").then((m) => ({ default: m.GradePDFExporter })));
 
 /* ═══ Helpers ═══ */
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { THREE } from "../lib/three-exports";
+import { loadThreeModules } from "../lib/three-loader";
+import { useHeavyEffectsEnabled } from "../lib/effects";
 
 /**
  * Atmospheric morphing mesh — two blobs (STI Blue + STI Yellow)
@@ -8,10 +9,18 @@ import { THREE } from "../lib/three-exports";
  */
 export function MorphingMesh() {
   const mountRef = useRef<HTMLDivElement>(null);
+  const heavyEffectsEnabled = useHeavyEffectsEnabled();
 
   useEffect(() => {
+    if (!heavyEffectsEnabled) return;
     const container = mountRef.current;
     if (!container) return;
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+
+    void (async () => {
+    const { THREE } = await loadThreeModules();
+    if (cancelled) return;
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -87,19 +96,27 @@ export function MorphingMesh() {
     };
     animate();
 
-    return () => {
+    cleanup = () => {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", onResize);
       renderer.dispose();
       blob1.geo.dispose();
-      (blob1.mesh.material as THREE.Material).dispose();
+      (blob1.mesh.material as any).dispose();
       blob2.geo.dispose();
-      (blob2.mesh.material as THREE.Material).dispose();
+      (blob2.mesh.material as any).dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
     };
-  }, []);
+    })();
+
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, [heavyEffectsEnabled]);
+
+  if (!heavyEffectsEnabled) return null;
 
   return <div ref={mountRef} className="absolute inset-0" style={{ zIndex: 0 }} />;
 }

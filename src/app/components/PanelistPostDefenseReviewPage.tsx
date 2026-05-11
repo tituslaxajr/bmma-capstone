@@ -324,7 +324,7 @@ export function PanelistPostDefenseReviewPage() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { label: "Awaiting Submission", count: pendingCount, color: DT.textTer, icon: <Clock size={16} /> },
           { label: "Ready for Review", count: submittedCount, color: DT.warning, icon: <Eye size={16} /> },

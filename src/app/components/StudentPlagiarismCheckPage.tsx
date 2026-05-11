@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { lazy, useState, useEffect, useCallback, useRef } from "react";
 import {
   Shield, Upload, FileText, Search, AlertTriangle, CheckCircle2,
   ExternalLink, ChevronDown, ChevronUp,
@@ -9,7 +9,9 @@ import { apiFetch } from "../lib/supabase";
 import { toast } from "sonner";
 import { extractTextFromPDF } from "../lib/pdf-extract";
 import { AIAnalyzeFromText, AIReportDisplay } from "./AIAnalysisPanel";
-import { ExportReportButton, RateLimitIndicator } from "./ReportExporter";
+
+const ExportReportButton = lazy(() => import("./ReportExporter").then((m) => ({ default: m.ExportReportButton })));
+const RateLimitIndicator = lazy(() => import("./ReportExporter").then((m) => ({ default: m.RateLimitIndicator })));
 
 /* ═══════════════════════════════════════════
    STUDENT AI DETECTION CHECK PAGE

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { Suspense, lazy, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Search, Download, Plus, Pencil, ToggleLeft, ToggleRight,
   X, ChevronLeft, ChevronRight, AlertTriangle, GraduationCap,
@@ -9,12 +9,13 @@ import {
 import { supabase, apiFetch } from "../lib/supabase";
 import { toast } from "sonner";
 import { DT, FT, withAlpha } from "./cinematic-tokens";
-import { BulkImportModal } from "./BulkImportModal";
 import { useDebouncedValue } from "../lib/useDebounce";
 import { validateAvatar, getAcceptString, ALLOWED_IMAGE_TYPES } from "../lib/fileValidation";
 import { PageShell } from "./PageShell";
 import { inputStyle, focusIn, focusOut } from "./ui/shared-ui";
 import { AvatarCircle } from "./AvatarCircle";
+
+const BulkImportModal = lazy(() => import("./BulkImportModal").then((m) => ({ default: m.BulkImportModal })));
 
 /* ═══ Types ═══ */
 type UserRole = "student" | "panelist" | "adviser" | "coordinator";
@@ -387,7 +388,7 @@ function UserModal({ mode, user, onClose, onSaved }: { mode: "add" | "edit"; use
                 <span style={{ fontSize: 12, color: DT.warning }}>Changing role will affect access permissions immediately.</span>
               </div>
             )}
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <RoleOption icon={<GraduationCap size={20} />} label="Student" selected={role === "student"} onClick={() => setPrimaryRole("student")} />
               <RoleOption icon={<ShieldCheck size={20} />} label="Panelist" selected={role === "panelist"} onClick={() => setPrimaryRole("panelist")} />
               <RoleOption icon={<BookOpen size={20} />} label="Adviser" selected={role === "adviser"} onClick={() => setPrimaryRole("adviser")} />
@@ -946,7 +947,11 @@ export function UserManagementPage() {
 
       {/* ── Modals ── */}
       {modalMode && <UserModal mode={modalMode} user={editUser} onClose={() => { setModalMode(null); setEditUser(null); }} onSaved={fetchUsers} />}
-      {showBulkImport && <BulkImportModal onClose={() => setShowBulkImport(false)} onDone={fetchUsers} />}
+      {showBulkImport && (
+        <Suspense fallback={null}>
+          <BulkImportModal onClose={() => setShowBulkImport(false)} onDone={fetchUsers} />
+        </Suspense>
+      )}
       {deleteTarget && <DeleteConfirmModal user={deleteTarget} deleting={deleting} onConfirm={handleDeleteUser} onClose={() => setDeleteTarget(null)} />}
 
       <style>{`@keyframes shimmer{0%,100%{opacity:0.3}50%{opacity:0.6}}`}</style>

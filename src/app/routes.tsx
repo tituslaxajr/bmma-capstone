@@ -161,7 +161,8 @@ function LoginWrapper() {
 }
 
 function SetupWrapper() {
-  const { user, needsProfileSetup, completeProfileSetup } = useAuth();
+  const { user, loading, needsProfileSetup, completeProfileSetup } = useAuth();
+  if (loading) return <PageLoader />;
   if (!user) return <Navigate to="/login" replace />;
   if (!needsProfileSetup) return <Navigate to={`/${user.role}`} replace />;
   return (

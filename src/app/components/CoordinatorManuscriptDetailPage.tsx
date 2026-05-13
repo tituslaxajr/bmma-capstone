@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { supabase, apiFetch } from "../lib/supabase";
 import { toast } from "sonner";
+import { DT, FT, withAlpha } from "./cinematic-tokens";
 import { inputStyle, focusIn, focusOut, sectionBg } from "./ui/shared-ui";
 
 /* ═══ Helpers ═══ */

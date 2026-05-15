@@ -161,6 +161,17 @@
   margin-bottom: clamp(0.85rem, 1.35vw, 1.2rem);
 }
 
+.timer-presets-label {
+  grid-column: 1 / -1;
+  margin: 0 0 -0.2rem;
+  color: rgba(247, 251, 255, 0.52);
+  font-size: clamp(0.62rem, 0.78vw, 0.82rem);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 .timer-preset {
   display: flex;
   align-items: center;
@@ -181,6 +192,26 @@
   transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
+.timer-preset span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.timer-preset small {
+  display: inline-grid;
+  width: 1.45rem;
+  height: 1.45rem;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.72);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.74em;
+  letter-spacing: 0;
+}
+
 .timer-preset strong {
   color: var(--timer-secondary);
   flex: 0 0 auto;
@@ -195,6 +226,12 @@
   background: rgba(100, 216, 255, 0.12);
   box-shadow: 0 0 1.8rem rgba(100, 216, 255, 0.16);
   transform: translateY(-1px);
+}
+
+.timer-preset--active small {
+  border-color: rgba(255, 216, 77, 0.58);
+  background: rgba(255, 216, 77, 0.16);
+  color: #fff3a1;
 }
 
 .timer-readout {

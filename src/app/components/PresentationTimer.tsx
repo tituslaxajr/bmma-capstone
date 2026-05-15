@@ -7,9 +7,9 @@ const ONE_MINUTE = 60;
 const STORAGE_KEY = "bmma-presentation-timer";
 
 const TIMER_PRESETS = [
-  { id: "presentation", label: "Presentation", durationSeconds: 30 * 60 },
-  { id: "qa", label: "Q and A", durationSeconds: 60 * 60 },
-  { id: "deliberation", label: "Panel Deliberation", durationSeconds: 20 * 60 },
+  { id: "presentation", label: "Presentation", shortcut: "1", durationSeconds: 30 * 60 },
+  { id: "qa", label: "Q&A", shortcut: "2", durationSeconds: 60 * 60 },
+  { id: "deliberation", label: "Deliberation", shortcut: "3", durationSeconds: 20 * 60 },
 ] as const;
 
 type TimerPhase = "standard" | "warning" | "final" | "done";
@@ -55,6 +55,11 @@ function getPhaseLabel(phase: TimerPhase) {
 
 function getPresetById(presetId: string | undefined) {
   return TIMER_PRESETS.find((preset) => preset.id === presetId) ?? TIMER_PRESETS[0];
+}
+
+function getPresetStatusLabel(phase: TimerPhase, presetLabel: string) {
+  if (phase !== "standard") return getPhaseLabel(phase);
+  return `${presetLabel} time`;
 }
 
 function clampSeconds(value: number, durationSeconds: number) {
@@ -181,6 +186,14 @@ export function PresentationTimer() {
         setSecondsLeft(durationSeconds);
       }
 
+      const shortcutPreset = TIMER_PRESETS.find((preset) => preset.shortcut === event.key);
+      if (shortcutPreset) {
+        setIsRunning(false);
+        setPresetId(shortcutPreset.id);
+        setDurationSeconds(shortcutPreset.durationSeconds);
+        setSecondsLeft(shortcutPreset.durationSeconds);
+      }
+
       if (event.key.toLowerCase() === "f") {
         if (!document.fullscreenElement) {
           document.documentElement.requestFullscreen().catch(() => undefined);
@@ -252,17 +265,22 @@ export function PresentationTimer() {
           <span />
         </div>
 
-        <p className="timer-status">{getPhaseLabel(phase)}</p>
+        <p className="timer-status">{getPresetStatusLabel(phase, activePreset.label)}</p>
 
         <div className="timer-presets" aria-label="Capstone defense timer presets">
+          <p className="timer-presets-label">Select segment</p>
           {TIMER_PRESETS.map((preset) => (
             <button
               key={preset.id}
               type="button"
               className={preset.id === presetId ? "timer-preset timer-preset--active" : "timer-preset"}
               onClick={() => handlePresetSelect(preset)}
+              aria-pressed={preset.id === presetId}
             >
-              <span>{preset.label}</span>
+              <span>
+                <small>{preset.shortcut}</small>
+                {preset.label}
+              </span>
               <strong>{Math.round(preset.durationSeconds / 60)} min</strong>
             </button>
           ))}
@@ -314,7 +332,7 @@ export function PresentationTimer() {
           </button>
         </div>
 
-        <p className="timer-help">Space start/pause | R reset | F fullscreen</p>
+        <p className="timer-help">1 Presentation | 2 Q&A | 3 Deliberation | Space start/pause | R reset | F fullscreen</p>
       </section>
     </main>
   );

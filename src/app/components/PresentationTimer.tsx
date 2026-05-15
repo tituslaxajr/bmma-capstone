@@ -20,6 +20,10 @@ function formatTime(totalSeconds: number) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+function formatMinuteValue(totalSeconds: number) {
+  return String(Math.floor(totalSeconds / 60));
+}
+
 function getPhase(secondsLeft: number): TimerPhase {
   if (secondsLeft <= 0) return "done";
   if (secondsLeft <= ONE_MINUTE) return "final";
@@ -164,6 +168,11 @@ export function PresentationTimer() {
     setSecondsLeft(DURATION_SECONDS);
   };
 
+  const handleManualSet = (value: number) => {
+    setIsRunning(false);
+    setSecondsLeft(clampSeconds(value));
+  };
+
   const handlePrimaryAction = () => {
     if (secondsLeft === 0) {
       setSecondsLeft(DURATION_SECONDS);
@@ -213,6 +222,35 @@ export function PresentationTimer() {
 
         <div className="timer-progress" aria-hidden="true">
           <span style={{ transform: `scaleX(${progress})` }} />
+        </div>
+
+        <div className="timer-manual-controls" aria-label="Manual timer correction controls">
+          <label className="timer-slider-label" htmlFor="timer-manual-slider">
+            Manual time
+            <span>{formatTime(secondsLeft)}</span>
+          </label>
+          <input
+            id="timer-manual-slider"
+            type="range"
+            min="0"
+            max={DURATION_SECONDS}
+            step="15"
+            value={secondsLeft}
+            onChange={(event) => handleManualSet(Number(event.currentTarget.value))}
+            aria-label="Set remaining timer seconds"
+          />
+          <div className="timer-manual-row">
+            <label htmlFor="timer-minute-input">Minutes left</label>
+            <input
+              id="timer-minute-input"
+              type="number"
+              min="0"
+              max="30"
+              value={formatMinuteValue(secondsLeft)}
+              onChange={(event) => handleManualSet(Number(event.currentTarget.value) * 60)}
+              aria-label="Set remaining timer minutes"
+            />
+          </div>
         </div>
 
         <div className="timer-actions">

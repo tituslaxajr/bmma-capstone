@@ -1,24 +1,24 @@
 .presentation-timer {
-  --timer-primary: #55b7ff;
-  --timer-secondary: #ffd229;
-  --timer-hot: #ff6c2f;
-  --timer-ink: #071126;
-  --timer-panel: rgba(7, 13, 35, 0.72);
-  --timer-glow: rgba(80, 183, 255, 0.5);
+  --timer-primary: #64d8ff;
+  --timer-secondary: #ffd84d;
+  --timer-hot: #ff7a35;
+  --timer-ink: #061121;
+  --timer-panel: rgba(4, 10, 28, 0.58);
+  --timer-glow: rgba(100, 216, 255, 0.44);
   --timer-text: #f7fbff;
-  --timer-muted: rgba(247, 251, 255, 0.72);
+  --timer-muted: rgba(247, 251, 255, 0.68);
   position: relative;
   display: grid;
   min-height: 100vh;
   place-items: center;
   overflow: hidden;
   background:
-    radial-gradient(circle at 14% 20%, rgba(255, 49, 96, 0.26), transparent 24rem),
-    radial-gradient(circle at 82% 19%, rgba(255, 196, 38, 0.28), transparent 26rem),
-    radial-gradient(circle at 68% 82%, rgba(0, 180, 255, 0.42), transparent 32rem),
-    linear-gradient(145deg, #07071a 0%, #101a45 44%, #071126 100%);
+    radial-gradient(circle at 18% 18%, rgba(255, 77, 109, 0.22), transparent 25rem),
+    radial-gradient(circle at 79% 18%, rgba(255, 218, 77, 0.22), transparent 28rem),
+    radial-gradient(circle at 68% 78%, rgba(61, 202, 255, 0.32), transparent 34rem),
+    linear-gradient(140deg, #040613 0%, #091a3d 48%, #030817 100%);
   color: var(--timer-text);
-  font-family: "Arial Black", Impact, system-ui, sans-serif;
+  font-family: "DM Sans", system-ui, sans-serif;
   isolation: isolate;
 }
 
@@ -27,11 +27,11 @@
   inset: 0;
   z-index: -2;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
-  background-size: 44px 44px;
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
   content: "";
-  mask-image: radial-gradient(circle at center, black, transparent 72%);
+  mask-image: radial-gradient(circle at center, black, transparent 68%);
 }
 
 .presentation-timer::after {
@@ -39,22 +39,22 @@
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(circle at center, transparent 0 40%, rgba(0, 0, 0, 0.42) 78%),
-    linear-gradient(110deg, rgba(255, 255, 255, 0.16), transparent 18% 82%, rgba(255, 255, 255, 0.1));
+    radial-gradient(circle at center, transparent 0 42%, rgba(0, 0, 0, 0.5) 82%),
+    linear-gradient(112deg, rgba(255, 255, 255, 0.11), transparent 18% 82%, rgba(255, 255, 255, 0.08));
   content: "";
   pointer-events: none;
 }
 
 .timer-aurora {
   position: absolute;
-  width: 86vw;
-  height: 86vw;
+  width: 94vw;
+  height: 94vw;
   border-radius: 999px;
   background:
-    conic-gradient(from 25deg, transparent, rgba(255, 210, 41, 0.38), transparent, rgba(85, 183, 255, 0.36), transparent, rgba(255, 49, 96, 0.36), transparent),
-    radial-gradient(circle, transparent 0 42%, rgba(255, 255, 255, 0.14) 43%, transparent 45%);
-  filter: blur(14px);
-  opacity: 0.82;
+    conic-gradient(from 25deg, transparent, rgba(255, 216, 77, 0.28), transparent, rgba(100, 216, 255, 0.3), transparent, rgba(255, 77, 109, 0.3), transparent),
+    radial-gradient(circle, transparent 0 45%, rgba(255, 255, 255, 0.09) 46%, transparent 48%);
+  filter: blur(28px);
+  opacity: 0.7;
   transform: rotate(-8deg);
   animation: timerSpin 36s linear infinite;
 }
@@ -64,9 +64,9 @@
   width: 34rem;
   height: 6rem;
   border-radius: 999px;
-  filter: blur(20px);
+  filter: blur(34px);
   mix-blend-mode: screen;
-  opacity: 0.76;
+  opacity: 0.6;
   transform: rotate(-18deg);
 }
 
@@ -92,23 +92,34 @@
 
 .timer-stage {
   position: relative;
-  width: min(88vw, 1380px);
+  width: min(90vw, 1360px);
   aspect-ratio: 16 / 9;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: clamp(2rem, 4vw, 4.5rem);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 3.25rem;
+  padding: clamp(2rem, 4.2vw, 4.6rem);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: clamp(1.6rem, 3vw, 3.4rem);
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.16), transparent 28% 72%, rgba(255, 255, 255, 0.08)),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent 26% 72%, rgba(255, 255, 255, 0.06)),
+    radial-gradient(circle at 50% 0%, rgba(100, 216, 255, 0.16), transparent 34rem),
     var(--timer-panel);
   box-shadow:
-    0 2.5rem 8rem rgba(0, 0, 0, 0.62),
-    inset 0 0 4rem rgba(255, 255, 255, 0.06),
-    0 0 5rem var(--timer-glow);
-  backdrop-filter: blur(18px) saturate(135%);
+    0 2.8rem 9rem rgba(0, 0, 0, 0.66),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    0 0 4.5rem var(--timer-glow);
+  backdrop-filter: blur(28px) saturate(150%);
+}
+
+.timer-stage::before {
+  position: absolute;
+  inset: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: calc(clamp(1.6rem, 3vw, 3.4rem) - 0.7rem);
+  content: "";
+  pointer-events: none;
 }
 
 .timer-kicker {
@@ -119,21 +130,19 @@
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  color: var(--timer-muted);
-  font-family: "DM Sans", system-ui, sans-serif;
-  font-size: clamp(0.8rem, 1.3vw, 1.3rem);
-  font-weight: 800;
-  letter-spacing: 0.18em;
+  color: rgba(247, 251, 255, 0.58);
+  font-size: clamp(0.72rem, 1vw, 1rem);
+  font-weight: 900;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
 }
 
 .timer-status {
-  margin: 0 0 clamp(0.8rem, 2vw, 1.4rem);
+  margin: 0 0 clamp(0.65rem, 1.3vw, 1rem);
   color: var(--timer-secondary);
-  font-family: "DM Sans", system-ui, sans-serif;
-  font-size: clamp(1rem, 2vw, 2rem);
+  font-size: clamp(0.9rem, 1.45vw, 1.45rem);
   font-weight: 900;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   text-shadow: 0 0 1.5rem rgba(255, 210, 41, 0.58);
 }
@@ -142,15 +151,16 @@
   position: relative;
   z-index: 1;
   color: var(--timer-text);
-  font-size: clamp(6rem, 18vw, 18.5rem);
-  font-weight: 950;
-  letter-spacing: -0.08em;
-  line-height: 0.9;
+  font-family: "JetBrains Mono", "DM Sans", monospace;
+  font-size: clamp(5.7rem, 16vw, 16.8rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: -0.1em;
+  line-height: 0.88;
   text-shadow:
-    0 0 0.08em rgba(255, 255, 255, 0.9),
+    0 0 0.05em rgba(255, 255, 255, 0.62),
     0 0 0.18em var(--timer-glow),
-    0.04em 0.04em 0 #0a1029,
-    -0.03em 0.06em 0 var(--timer-secondary);
+    0 0.04em 0.22em rgba(0, 0, 0, 0.42);
 }
 
 .timer-readout::before {
@@ -165,8 +175,8 @@
 
 .timer-progress {
   width: min(62rem, 72vw);
-  height: 0.8rem;
-  margin-top: clamp(1.5rem, 3vw, 2.7rem);
+  height: 0.55rem;
+  margin-top: clamp(1.2rem, 2.2vw, 2rem);
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 999px;
@@ -186,14 +196,13 @@
 }
 
 .timer-manual-controls {
-  width: min(50rem, 68vw);
-  margin-top: clamp(0.9rem, 1.5vw, 1.4rem);
-  padding: 0.95rem 1.1rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 1.4rem;
-  background: rgba(2, 7, 24, 0.36);
-  box-shadow: inset 0 0 1.6rem rgba(255, 255, 255, 0.05);
-  font-family: "DM Sans", system-ui, sans-serif;
+  width: min(48rem, 66vw);
+  margin-top: clamp(0.85rem, 1.3vw, 1.2rem);
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 1.2rem rgba(255, 255, 255, 0.04);
 }
 
 .timer-slider-label,
@@ -202,8 +211,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: clamp(0.72rem, 1vw, 0.95rem);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: clamp(0.68rem, 0.9vw, 0.84rem);
   font-weight: 900;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -220,7 +229,7 @@
   width: 100%;
   height: 0.45rem;
   margin: 0.9rem 0 0.75rem;
-  accent-color: var(--timer-secondary);
+  accent-color: var(--timer-primary);
   cursor: pointer;
 }
 
@@ -228,7 +237,7 @@
   width: 5.5rem;
   border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: 0.85rem;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
   font: 900 1rem "JetBrains Mono", monospace;
   padding: 0.45rem 0.7rem;
@@ -238,29 +247,29 @@
 .timer-actions {
   display: flex;
   gap: 1rem;
-  margin-top: clamp(1rem, 1.7vw, 1.6rem);
+  margin-top: clamp(0.9rem, 1.4vw, 1.3rem);
 }
 
 .timer-actions button {
   min-width: 8rem;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
   cursor: pointer;
   font-family: "DM Sans", system-ui, sans-serif;
-  font-size: clamp(0.9rem, 1.3vw, 1.1rem);
+  font-size: clamp(0.82rem, 1vw, 0.98rem);
   font-weight: 900;
   letter-spacing: 0.08em;
-  padding: 0.95rem 1.45rem;
+  padding: 0.85rem 1.35rem;
   text-transform: uppercase;
   transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
 }
 
 .timer-actions button:first-child {
-  background: linear-gradient(135deg, var(--timer-secondary), var(--timer-hot));
+  background: linear-gradient(135deg, var(--timer-primary), var(--timer-secondary));
   color: var(--timer-ink);
-  box-shadow: 0 0 2rem rgba(255, 210, 41, 0.34);
+  box-shadow: 0 0 2rem var(--timer-glow);
 }
 
 .timer-actions button:hover {
@@ -273,9 +282,8 @@
   right: clamp(1.75rem, 4vw, 4rem);
   bottom: clamp(1.5rem, 3vw, 3rem);
   margin: 0;
-  color: rgba(255, 255, 255, 0.62);
-  font-family: "DM Sans", system-ui, sans-serif;
-  font-size: clamp(0.75rem, 1vw, 1rem);
+  color: rgba(255, 255, 255, 0.44);
+  font-size: clamp(0.68rem, 0.86vw, 0.86rem);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -290,7 +298,7 @@
   gap: 0.35rem;
   width: clamp(4.75rem, 8vw, 8rem);
   transform: rotate(12deg) skew(-5deg);
-  opacity: 0.72;
+  opacity: 0.36;
 }
 
 .timer-cube span,
@@ -298,7 +306,7 @@
   display: block;
   aspect-ratio: 1;
   border: 1px solid rgba(255, 255, 255, 0.38);
-  border-radius: 0.6rem;
+  border-radius: 0.75rem;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.08));
   box-shadow: inset 0 0 1rem rgba(255, 255, 255, 0.14), 0 0 1.2rem var(--timer-glow);
 }
@@ -318,8 +326,8 @@
 .floating-tiles {
   position: absolute;
   inset: 0;
-  filter: blur(10px);
-  opacity: 0.72;
+  filter: blur(18px);
+  opacity: 0.62;
   pointer-events: none;
 }
 
@@ -332,7 +340,7 @@
     inset 0 0 2rem rgba(255, 255, 255, 0.18),
     0 0 3.5rem var(--timer-glow),
     0 0 5rem currentColor;
-  filter: blur(8px) saturate(155%);
+  filter: blur(14px) saturate(155%);
 }
 
 .floating-tile--1 {

@@ -333,7 +333,7 @@
 .floating-tile {
   position: absolute;
   width: clamp(2.8rem, 6vw, 7.5rem);
-  animation: floatTile 8s ease-in-out infinite;
+  animation: floatTile var(--float-duration, 18s) ease-in-out infinite;
   border-color: rgba(255, 255, 255, 0.2);
   box-shadow:
     inset 0 0 2.6rem rgba(255, 255, 255, 0.18),
@@ -362,18 +362,18 @@
   background-color: rgba(255, 255, 255, 0.5);
 }
 
-.floating-tile:nth-child(1) { top: 7%; left: 8%; transform: rotate(17deg); }
-.floating-tile:nth-child(2) { top: 12%; right: 8%; transform: rotate(-22deg); animation-delay: -2s; }
-.floating-tile:nth-child(3) { top: 64%; left: 3%; transform: rotate(31deg); animation-delay: -4s; }
-.floating-tile:nth-child(4) { right: 4%; bottom: 10%; transform: rotate(11deg); animation-delay: -1s; }
-.floating-tile:nth-child(5) { top: 6%; left: 42%; transform: rotate(45deg); animation-delay: -5s; }
-.floating-tile:nth-child(6) { top: 80%; left: 27%; transform: rotate(-15deg); animation-delay: -3s; }
-.floating-tile:nth-child(7) { top: 28%; left: 20%; transform: rotate(55deg); animation-delay: -6s; }
-.floating-tile:nth-child(8) { top: 37%; right: 31%; transform: rotate(-38deg); animation-delay: -2.7s; }
-.floating-tile:nth-child(9) { bottom: 6%; left: 49%; transform: rotate(20deg); animation-delay: -4.3s; }
-.floating-tile:nth-child(10) { top: 48%; right: 3%; transform: rotate(44deg); animation-delay: -1.8s; }
-.floating-tile:nth-child(11) { top: 6%; right: 34%; transform: rotate(-9deg); animation-delay: -5.5s; }
-.floating-tile:nth-child(12) { bottom: 23%; right: 29%; transform: rotate(14deg); animation-delay: -3.4s; }
+.floating-tile:nth-child(1) { --float-x: 2.2rem; --float-y: -1.5rem; --float-duration: 22s; top: 7%; left: 8%; transform: rotate(17deg); }
+.floating-tile:nth-child(2) { --float-x: -1.7rem; --float-y: 2.1rem; --float-duration: 19s; top: 12%; right: 8%; transform: rotate(-22deg); animation-delay: -2s; }
+.floating-tile:nth-child(3) { --float-x: 1.4rem; --float-y: 2.5rem; --float-duration: 24s; top: 64%; left: 3%; transform: rotate(31deg); animation-delay: -4s; }
+.floating-tile:nth-child(4) { --float-x: -2.4rem; --float-y: -1.2rem; --float-duration: 20s; right: 4%; bottom: 10%; transform: rotate(11deg); animation-delay: -1s; }
+.floating-tile:nth-child(5) { --float-x: 1.8rem; --float-y: 1.4rem; --float-duration: 26s; top: 6%; left: 42%; transform: rotate(45deg); animation-delay: -5s; }
+.floating-tile:nth-child(6) { --float-x: -1.2rem; --float-y: -2.4rem; --float-duration: 21s; top: 80%; left: 27%; transform: rotate(-15deg); animation-delay: -3s; }
+.floating-tile:nth-child(7) { --float-x: 2.5rem; --float-y: 1.1rem; --float-duration: 23s; top: 28%; left: 20%; transform: rotate(55deg); animation-delay: -6s; }
+.floating-tile:nth-child(8) { --float-x: -1.8rem; --float-y: -2rem; --float-duration: 18s; top: 37%; right: 31%; transform: rotate(-38deg); animation-delay: -2.7s; }
+.floating-tile:nth-child(9) { --float-x: 1.2rem; --float-y: -1.8rem; --float-duration: 25s; bottom: 6%; left: 49%; transform: rotate(20deg); animation-delay: -4.3s; }
+.floating-tile:nth-child(10) { --float-x: -2.3rem; --float-y: 1.6rem; --float-duration: 19s; top: 48%; right: 3%; transform: rotate(44deg); animation-delay: -1.8s; }
+.floating-tile:nth-child(11) { --float-x: 1.5rem; --float-y: 2rem; --float-duration: 27s; top: 6%; right: 34%; transform: rotate(-9deg); animation-delay: -5.5s; }
+.floating-tile:nth-child(12) { --float-x: -1.6rem; --float-y: -1.3rem; --float-duration: 22s; bottom: 23%; right: 29%; transform: rotate(14deg); animation-delay: -3.4s; }
 .floating-tile:nth-child(n + 13) {
   width: clamp(1.4rem, 2.4vw, 2.8rem);
 }
@@ -419,11 +419,15 @@
 
 @keyframes floatTile {
   0%, 100% {
+    opacity: 0.58;
+    scale: 0.96;
     translate: 0 0;
   }
 
   50% {
-    translate: 0 -1.2rem;
+    opacity: 0.86;
+    scale: 1.04;
+    translate: var(--float-x, 1.5rem) var(--float-y, -1.5rem);
   }
 }
 

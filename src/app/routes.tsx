@@ -13,6 +13,7 @@ import { CoordinatorLayout } from "./components/layouts/CoordinatorLayout";
 const LandingPage = React.lazy(() => import("./components/LandingPage").then(m => ({ default: m.LandingPage })));
 const LoginPage = React.lazy(() => import("./components/LoginPage").then(m => ({ default: m.LoginPage })));
 const ProfileSetupPage = React.lazy(() => import("./components/ProfileSetupPage").then(m => ({ default: m.ProfileSetupPage })));
+const PresentationTimer = React.lazy(() => import("./components/PresentationTimer").then(m => ({ default: m.PresentationTimer })));
 
 const StudentDashboard = React.lazy(() => import("./components/StudentDashboard").then(m => ({ default: m.StudentDashboard })));
 const ManuscriptSubmissionPage = React.lazy(() => import("./components/ManuscriptSubmissionPage").then(m => ({ default: m.ManuscriptSubmissionPage })));
@@ -189,6 +190,7 @@ export const router = createBrowserRouter([
       { index: true, Component: LandingWrapper },
       { path: "login", Component: LoginWrapper },
       { path: "setup", Component: SetupWrapper },
+      { path: "timer", Component: lazy(PresentationTimer) },
 
       /* Student */
       {

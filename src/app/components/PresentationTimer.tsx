@@ -4,8 +4,15 @@ import "./PresentationTimer.css";
 const DURATION_SECONDS = 30 * 60;
 const FIVE_MINUTES = 5 * 60;
 const ONE_MINUTE = 60;
+const STORAGE_KEY = "bmma-presentation-timer";
 
 type TimerPhase = "standard" | "warning" | "final" | "done";
+
+type StoredTimerState = {
+  secondsLeft: number;
+  isRunning: boolean;
+  savedAt: number;
+};
 
 function formatTime(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60);
@@ -33,9 +40,70 @@ function getPhaseLabel(phase: TimerPhase) {
   }
 }
 
+function clampSeconds(value: number) {
+  if (!Number.isFinite(value)) return DURATION_SECONDS;
+  return Math.min(DURATION_SECONDS, Math.max(0, Math.round(value)));
+}
+
+function getStoredTimerState(): StoredTimerState {
+  if (typeof window === "undefined") {
+    return {
+      secondsLeft: DURATION_SECONDS,
+      isRunning: false,
+      savedAt: Date.now(),
+    };
+  }
+
+  try {
+    const rawState = window.localStorage.getItem(STORAGE_KEY);
+    if (!rawState) {
+      return {
+        secondsLeft: DURATION_SECONDS,
+        isRunning: false,
+        savedAt: Date.now(),
+      };
+    }
+
+    const parsedState = JSON.parse(rawState) as Partial<StoredTimerState>;
+    const savedSeconds = clampSeconds(Number(parsedState.secondsLeft));
+    const wasRunning = Boolean(parsedState.isRunning);
+    const savedAt = Number(parsedState.savedAt);
+    const elapsedSeconds = wasRunning && Number.isFinite(savedAt) ? Math.floor((Date.now() - savedAt) / 1000) : 0;
+    const secondsLeft = clampSeconds(savedSeconds - elapsedSeconds);
+
+    return {
+      secondsLeft,
+      isRunning: wasRunning && secondsLeft > 0,
+      savedAt: Date.now(),
+    };
+  } catch {
+    return {
+      secondsLeft: DURATION_SECONDS,
+      isRunning: false,
+      savedAt: Date.now(),
+    };
+  }
+}
+
+function saveTimerState(secondsLeft: number, isRunning: boolean) {
+  try {
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        secondsLeft,
+        isRunning,
+        savedAt: Date.now(),
+      }),
+    );
+  } catch {
+    // Timer controls should keep working even when storage is unavailable.
+  }
+}
+
 export function PresentationTimer() {
-  const [secondsLeft, setSecondsLeft] = useState(DURATION_SECONDS);
-  const [isRunning, setIsRunning] = useState(false);
+  const initialState = useMemo(() => getStoredTimerState(), []);
+  const [secondsLeft, setSecondsLeft] = useState(initialState.secondsLeft);
+  const [isRunning, setIsRunning] = useState(initialState.isRunning);
   const intervalRef = useRef<number | null>(null);
 
   const phase = useMemo(() => getPhase(secondsLeft), [secondsLeft]);
@@ -59,6 +127,10 @@ export function PresentationTimer() {
       if (intervalRef.current !== null) window.clearInterval(intervalRef.current);
     };
   }, [isRunning]);
+
+  useEffect(() => {
+    saveTimerState(secondsLeft, isRunning);
+  }, [secondsLeft, isRunning]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -152,7 +224,7 @@ export function PresentationTimer() {
           </button>
         </div>
 
-        <p className="timer-help">Space start/pause · R reset · F fullscreen</p>
+        <p className="timer-help">Space start/pause | R reset | F fullscreen</p>
       </section>
     </main>
   );

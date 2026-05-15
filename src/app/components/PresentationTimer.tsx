@@ -1,17 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./PresentationTimer.css";
 
-const DURATION_SECONDS = 30 * 60;
+const DEFAULT_DURATION_SECONDS = 30 * 60;
 const FIVE_MINUTES = 5 * 60;
 const ONE_MINUTE = 60;
 const STORAGE_KEY = "bmma-presentation-timer";
 
+const TIMER_PRESETS = [
+  { id: "presentation", label: "Presentation", durationSeconds: 30 * 60 },
+  { id: "qa", label: "Q and A", durationSeconds: 60 * 60 },
+  { id: "deliberation", label: "Panel Deliberation", durationSeconds: 20 * 60 },
+] as const;
+
 type TimerPhase = "standard" | "warning" | "final" | "done";
+type TimerPresetId = (typeof TIMER_PRESETS)[number]["id"];
 
 type StoredTimerState = {
   secondsLeft: number;
+  durationSeconds: number;
   isRunning: boolean;
   savedAt: number;
+  presetId: TimerPresetId;
 };
 
 function formatTime(totalSeconds: number) {
@@ -44,17 +53,23 @@ function getPhaseLabel(phase: TimerPhase) {
   }
 }
 
-function clampSeconds(value: number) {
-  if (!Number.isFinite(value)) return DURATION_SECONDS;
-  return Math.min(DURATION_SECONDS, Math.max(0, Math.round(value)));
+function getPresetById(presetId: string | undefined) {
+  return TIMER_PRESETS.find((preset) => preset.id === presetId) ?? TIMER_PRESETS[0];
+}
+
+function clampSeconds(value: number, durationSeconds: number) {
+  if (!Number.isFinite(value)) return durationSeconds;
+  return Math.min(durationSeconds, Math.max(0, Math.round(value)));
 }
 
 function getStoredTimerState(): StoredTimerState {
   if (typeof window === "undefined") {
     return {
-      secondsLeft: DURATION_SECONDS,
+      secondsLeft: DEFAULT_DURATION_SECONDS,
+      durationSeconds: DEFAULT_DURATION_SECONDS,
       isRunning: false,
       savedAt: Date.now(),
+      presetId: "presentation",
     };
   }
 
@@ -62,41 +77,54 @@ function getStoredTimerState(): StoredTimerState {
     const rawState = window.localStorage.getItem(STORAGE_KEY);
     if (!rawState) {
       return {
-        secondsLeft: DURATION_SECONDS,
+        secondsLeft: DEFAULT_DURATION_SECONDS,
+        durationSeconds: DEFAULT_DURATION_SECONDS,
         isRunning: false,
         savedAt: Date.now(),
+        presetId: "presentation",
       };
     }
 
     const parsedState = JSON.parse(rawState) as Partial<StoredTimerState>;
-    const savedSeconds = clampSeconds(Number(parsedState.secondsLeft));
+    const preset = getPresetById(parsedState.presetId);
+    const parsedDuration = Number(parsedState.durationSeconds);
+    const durationSeconds = Number.isFinite(parsedDuration) && parsedDuration > 0
+      ? clampSeconds(parsedDuration, 60 * 60)
+      : preset.durationSeconds;
+    const savedSeconds = clampSeconds(Number(parsedState.secondsLeft), durationSeconds);
     const wasRunning = Boolean(parsedState.isRunning);
     const savedAt = Number(parsedState.savedAt);
     const elapsedSeconds = wasRunning && Number.isFinite(savedAt) ? Math.floor((Date.now() - savedAt) / 1000) : 0;
-    const secondsLeft = clampSeconds(savedSeconds - elapsedSeconds);
+    const secondsLeft = clampSeconds(savedSeconds - elapsedSeconds, durationSeconds);
 
     return {
       secondsLeft,
+      durationSeconds,
       isRunning: wasRunning && secondsLeft > 0,
       savedAt: Date.now(),
+      presetId: preset.id,
     };
   } catch {
     return {
-      secondsLeft: DURATION_SECONDS,
+      secondsLeft: DEFAULT_DURATION_SECONDS,
+      durationSeconds: DEFAULT_DURATION_SECONDS,
       isRunning: false,
       savedAt: Date.now(),
+      presetId: "presentation",
     };
   }
 }
 
-function saveTimerState(secondsLeft: number, isRunning: boolean) {
+function saveTimerState(secondsLeft: number, durationSeconds: number, isRunning: boolean, presetId: TimerPresetId) {
   try {
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
         secondsLeft,
+        durationSeconds,
         isRunning,
         savedAt: Date.now(),
+        presetId,
       }),
     );
   } catch {
@@ -107,11 +135,14 @@ function saveTimerState(secondsLeft: number, isRunning: boolean) {
 export function PresentationTimer() {
   const initialState = useMemo(() => getStoredTimerState(), []);
   const [secondsLeft, setSecondsLeft] = useState(initialState.secondsLeft);
+  const [durationSeconds, setDurationSeconds] = useState(initialState.durationSeconds);
   const [isRunning, setIsRunning] = useState(initialState.isRunning);
+  const [presetId, setPresetId] = useState<TimerPresetId>(initialState.presetId);
   const intervalRef = useRef<number | null>(null);
 
   const phase = useMemo(() => getPhase(secondsLeft), [secondsLeft]);
-  const progress = 1 - secondsLeft / DURATION_SECONDS;
+  const activePreset = getPresetById(presetId);
+  const progress = 1 - secondsLeft / durationSeconds;
 
   useEffect(() => {
     if (!isRunning) return;
@@ -133,8 +164,8 @@ export function PresentationTimer() {
   }, [isRunning]);
 
   useEffect(() => {
-    saveTimerState(secondsLeft, isRunning);
-  }, [secondsLeft, isRunning]);
+    saveTimerState(secondsLeft, durationSeconds, isRunning, presetId);
+  }, [secondsLeft, durationSeconds, isRunning, presetId]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -147,7 +178,7 @@ export function PresentationTimer() {
 
       if (event.key.toLowerCase() === "r") {
         setIsRunning(false);
-        setSecondsLeft(DURATION_SECONDS);
+        setSecondsLeft(durationSeconds);
       }
 
       if (event.key.toLowerCase() === "f") {
@@ -161,21 +192,28 @@ export function PresentationTimer() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [durationSeconds]);
 
   const handleReset = () => {
     setIsRunning(false);
-    setSecondsLeft(DURATION_SECONDS);
+    setSecondsLeft(durationSeconds);
   };
 
   const handleManualSet = (value: number) => {
     setIsRunning(false);
-    setSecondsLeft(clampSeconds(value));
+    setSecondsLeft(clampSeconds(value, durationSeconds));
+  };
+
+  const handlePresetSelect = (nextPreset: (typeof TIMER_PRESETS)[number]) => {
+    setIsRunning(false);
+    setPresetId(nextPreset.id);
+    setDurationSeconds(nextPreset.durationSeconds);
+    setSecondsLeft(nextPreset.durationSeconds);
   };
 
   const handlePrimaryAction = () => {
     if (secondsLeft === 0) {
-      setSecondsLeft(DURATION_SECONDS);
+      setSecondsLeft(durationSeconds);
       setIsRunning(true);
       return;
     }
@@ -196,10 +234,10 @@ export function PresentationTimer() {
         ))}
       </div>
 
-      <section className="timer-stage" aria-label="30 minute presentation timer">
+      <section className="timer-stage" aria-label={`${activePreset.label} timer`}>
         <div className="timer-kicker">
           <span>BMMA Capstone Defense</span>
-          <span>30 Minute Presentation</span>
+          <span>{Math.round(durationSeconds / 60)} Minute {activePreset.label}</span>
         </div>
 
         <div className="timer-cube" aria-hidden="true">
@@ -215,6 +253,20 @@ export function PresentationTimer() {
         </div>
 
         <p className="timer-status">{getPhaseLabel(phase)}</p>
+
+        <div className="timer-presets" aria-label="Capstone defense timer presets">
+          {TIMER_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className={preset.id === presetId ? "timer-preset timer-preset--active" : "timer-preset"}
+              onClick={() => handlePresetSelect(preset)}
+            >
+              <span>{preset.label}</span>
+              <strong>{Math.round(preset.durationSeconds / 60)} min</strong>
+            </button>
+          ))}
+        </div>
 
         <div className="timer-readout" aria-live="polite" aria-label={`${formatTime(secondsLeft)} remaining`}>
           {formatTime(secondsLeft)}
@@ -233,7 +285,7 @@ export function PresentationTimer() {
             id="timer-manual-slider"
             type="range"
             min="0"
-            max={DURATION_SECONDS}
+            max={durationSeconds}
             step="15"
             value={secondsLeft}
             onChange={(event) => handleManualSet(Number(event.currentTarget.value))}
@@ -245,7 +297,7 @@ export function PresentationTimer() {
               id="timer-minute-input"
               type="number"
               min="0"
-              max="30"
+              max={Math.round(durationSeconds / 60)}
               value={formatMinuteValue(secondsLeft)}
               onChange={(event) => handleManualSet(Number(event.currentTarget.value) * 60)}
               aria-label="Set remaining timer minutes"

@@ -318,6 +318,8 @@
 .floating-tiles {
   position: absolute;
   inset: 0;
+  filter: blur(10px);
+  opacity: 0.72;
   pointer-events: none;
 }
 
@@ -325,6 +327,12 @@
   position: absolute;
   width: clamp(1.5rem, 4vw, 4.5rem);
   animation: floatTile 8s ease-in-out infinite;
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow:
+    inset 0 0 2rem rgba(255, 255, 255, 0.18),
+    0 0 3.5rem var(--timer-glow),
+    0 0 5rem currentColor;
+  filter: blur(8px) saturate(155%);
 }
 
 .floating-tile--1 {
